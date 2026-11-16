@@ -48,6 +48,10 @@ dist/
 /data/downloads/
 /data/raw/
 /data/cache/
+
+# Private evaluation execution artifacts
+/evals/results/
+/evals/outputs/
 /tmp/
 /temp/
 /downloads/

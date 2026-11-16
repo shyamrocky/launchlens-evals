@@ -82,3 +82,85 @@ canonical locations and that no runtime, build, test, deployment or required
 safety-check dependency on workspace/ has been introduced. Report actual checks
 and any limits. Report existing violations before relocating files or changing
 historical bindings; this policy is not blanket migration authorization.
+
+## Week 4 public-repo guardrails and build-in-public rules
+
+Authority: explicit owner instruction, November 15, 2026.
+
+These rules apply to material added for Week 4 in launchlens-evals.
+Treat every commit as permanently public. The inherited Week 3 history
+through d9d5a8659ed74c3f9ae89bd5815d06e9ce82bdd6 is accepted as is
+and is not rewritten. The original Week 3 folder and repository remain
+unchanged. The earlier private-repository setup decision is superseded.
+
+### Material that stays private
+
+Never commit credentials, .env, API keys or tokens; raw provider requests
+or responses; checkpoints; archived packages; request headers or IDs;
+authorization records; budget ledgers; per-run accounting; Notion page
+IDs; Drive file IDs; local file paths; or trace exports.
+
+Raw evaluation results and outputs stay in ignored evals/results/ and
+evals/outputs/. Do not commit other saved Week 3 run data except for the
+narrow typed-notes exception below. Reviewer findings may be read locally
+to understand failures but must not be copied into the public repository.
+
+Do not publish employer data, code, names or internal details, or personal
+information about anyone. This includes notes, screenshots, recordings
+and commit messages.
+
+Do not commit course handouts, course notebooks, other students' work or
+the Academy reference repository. Link to their authorized sources instead.
+
+### Narrow exception for the owner's typed notes
+
+For Week 4 golden-case inputs only, the owner's own typed PMM notes from
+user_notes or session_notes.agent_notes may be used after the owner
+confirms each individual note is their own wording and contains nothing
+sensitive. Assign a new case ID and bring no other fields or artifacts
+from the saved run. Unit-test fixtures must remain synthetic.
+
+### Material eligible for public review
+
+The evaluation runner, synthetic tests, secret-free manifest, baseline
+and fix prompts, scoring rubric, pass bars and golden dataset may be
+committed after the checks and owner approval below.
+
+Golden cases contain case ID, slice, PMM notes and expected behavior.
+A separately curated results file may contain case ID, input, expected
+behavior, LinkedIn post, scores, failure category and summary cost and
+latency. Exclude trace IDs, request IDs and run IDs.
+
+The report may include reviewed LangSmith screenshots. Raw trace exports
+remain private. Public manifests must not disclose private source IDs or
+local paths.
+
+### Review and publication
+
+Before every commit, list the exact proposed files, scan them for keys,
+IDs, paths, headers and emails, and wait for owner approval. Before
+submission, scan the entire Git history the same way.
+
+No push or paid call is authorized without explicit owner approval.
+If sensitive material is committed, stop and do not push. For credentials,
+rotate at the provider immediately, even if never pushed. Remove sensitive
+material from history before pushing; if already pushed, rotate credentials
+first, then address history with explicit owner authorization.
+
+### Build in public
+
+Share methods, datasets, real scores, failures, regressions and limitations
+honestly. Do not cherry-pick cases or hide unsuccessful fixes.
+
+Label synthetic material, the fictional Coca-Cola Cherry Float launch and
+AI assistance. Keep the fictional-launch disclaimer in README and report.
+Credit sources, tools and AI coding assistants.
+
+Before sharing screenshots or video, check keys, emails, account and
+organization IDs, browser tabs and terminal history; crop or blur sensitive
+material.
+
+README must explain the project, setup with the reader's own credentials
+using .env.example, and where results are available. Choose a project
+license deliberately or state that none is granted. Keep commit messages
+short, factual and professional.
