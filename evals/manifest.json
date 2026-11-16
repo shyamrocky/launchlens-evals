@@ -1,0 +1,22 @@
+{
+  "schema": "launchlens-writer-eval-v1",
+  "snapshot_id": "us-proceed-pre-writer-v1",
+  "snapshot_hash": "40b13adddd00e1df08937af16e7033afdcd19cc6338450dcc63b0a1e35f99bff",
+  "prompt_file": "evals/prompts/baseline_v1.txt",
+  "prompt_hash": "2198dd6d64f5adca13728b6460db14e0bd5e1ab55468534c3994df3ec890b505",
+  "package_configuration_sha256": "6657f66802ef4f7f201aea37813353656fcf2cf42175ad3e21d0f482c251550b",
+  "profile_sha256": "e2606a87d3bae59e61db295a00e4c949fe189460b4eb4e5d032bf7ba5d75bae0",
+  "model": "NousResearch/Hermes-4-405B",
+  "temperature": 0,
+  "max_tokens": 8192,
+  "max_completion_tokens": 8192,
+  "context_tokens": 131072,
+  "timeout_seconds": 180,
+  "call_cap": 6,
+  "input_per_million_usd": "1",
+  "output_per_million_usd": "3",
+  "per_call_reservation_usd": "0.147456",
+  "reservation_usd": "0.884736",
+  "pricing_source": "configured_profile_not_verified_current_pricing",
+  "execution_authority": "Separate owner run smoke test instruction required; this manifest is not spending authorization."
+}
