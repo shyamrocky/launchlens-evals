@@ -144,8 +144,46 @@ rewriting. A returned post may still fail contract, citation, factual-support or
 instruction scoring. Those checks and human scores are subsequent evaluation
 work; `returned` is not a pass. Editorial quality remains advisory.
 
-The trace-ID field is blank in Phase 0. LangSmith instrumentation/verification is
-Phase 2 work under the plan's 30-minute time box; no tracing is enabled here.
+## Optional evaluation tracing
+
+Tracing is evaluation-only and explicitly enabled with --trace on a live run.
+Dry runs never initialize it. The runner reads only process-environment values:
+LANGSMITH_API_KEY, LANGSMITH_PROJECT and the existing NEBIUS_API_KEY. An explicitly
+owner-approved local wrapper may load only these selected settings into memory;
+the runner never reads .env. The project must be launchlens-evals. Credentials
+must never be printed, logged, saved, traced or included in command arguments.
+
+Each case gets one locally assigned trace UUID and one Writer LLM child. The
+exporter queues one completed batch per case with no retry. SDK enrichment,
+implicit batching and transport retries are off. Exported inputs contain only
+the public case note; outputs contain the extracted LinkedIn post and usage.
+The full prepared request, prompt text, snapshot, evidence/source identifiers,
+headers, raw response, private paths and exception messages are never exported.
+Both selected secrets are redacted from allowed values before dispatch. Metadata
+includes run/case identity, dataset version/hash, prompt file/hash, model,
+temperature, attempt status, tokens, configured-price cost, latency and safe error.
+The child represents the actual single HTTP attempt; its timestamps exclude
+telemetry delivery. This is deliberately partial input capture, not the full wire.
+
+Attempt rows are flushed before telemetry submission. New rows include
+trace_status (disabled, pending, or trace failed) and the local trace UUID.
+A UUID or pending status does not prove delivery. Late outcomes are appended to
+ignored evals/outputs/<label>/trace-status.jsonl as delivered or trace failed.
+evals.tracing.resolved_rows(results_path, sidecar_path) joins those events for
+reports without rewriting CSV rows. Partial/truncated events do not claim success.
+Queue overflow, client failures and configuration errors cannot fail or retry the
+Writer. Missing sidecar events remain pending, never silently marked delivered.
+
+The run_evaluation API never waits for HTTP by default. The CLI with --trace
+allows up to 10 seconds of observation after all Writer attempts and durable
+rows are complete; this does not enter Writer latency or delay a subsequent
+Writer call. A short-lived process may lose queued telemetry at exit. Use an
+owner-approved post-run observer for the live verification; failed/pending
+telemetry is not grounds for another Writer call. No paid call, trace upload or
+baseline cap increase is authorized merely by enabling this flag.
+
+The owner lifted the original 30-minute tracing limit for this implementation.
+Production tracing and all generation settings remain unchanged.
 
 A manual retry uses a **new** run label plus `--retry-of ORIGINAL_LABEL`, with its
 own authorization. Only identical cases whose original attempt was a transport

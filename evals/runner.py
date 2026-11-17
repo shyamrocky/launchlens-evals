@@ -37,7 +37,7 @@ COLUMNS = (
     'run_label', 'case_id', 'attempt_no', 'timestamp', 'prompt_file', 'prompt_hash',
     'snapshot_hash', 'model', 'temperature', 'run_status', 'error_message',
     'input_tokens', 'output_tokens', 'latency_ms', 'cost_usd', 'langsmith_trace_id',
-    'linkedin_post', 'raw_output_path',
+    'linkedin_post', 'raw_output_path', 'trace_status',
 )
 DERIVED_PATHS = {
     '$.binding.authoritative_input_sha256',
@@ -296,18 +296,22 @@ class AttemptTransport:
         self.response = None
         self.status = None
         self.used = False
+        self.started_at = self.ended_at = None
 
     def __call__(self, payload):
         require(not self.used and payload == self.expected, 'Attempt or prepared request differs')
         self.used = True
         wire = wire_request(payload, self.manifest)
         http = self.factory(wire)
+        self.started_at = datetime.now(timezone.utc)
         try:
             reply = http(wire)
         except Exception as error:
             reason = error.reason if isinstance(error, urllib.error.URLError) else error
             self.status = 'timeout' if isinstance(reason, TimeoutError) else 'transport_error'
             raise EvalError('Provider attempt failed') from None
+        finally:
+            self.ended_at = datetime.now(timezone.utc)
         private_write(self.raw_path, reply.body)
         if reply.status != 200 or reply.credential_redacted:
             self.status = 'transport_error'
@@ -341,7 +345,7 @@ def validate_retry(results, outputs, retry_of, cases, manifest):
 
 
 def run_evaluation(manifest, snapshot, cases, run_label, *, live=False, call_cap=None,
-                   approval=None, wire_factory=None, storage_root=ROOT, retry_of=None):
+                   approval=None, wire_factory=None, storage_root=ROOT, retry_of=None, trace=False, tracer=None, trace_wait_seconds=0):
     """One attempt per selected case. Injected wire factory is for offline testing."""
     identifier(run_label)
     cap = manifest['call_cap'] if call_cap is None else call_cap
@@ -378,6 +382,13 @@ def run_evaluation(manifest, snapshot, cases, run_label, *, live=False, call_cap
     run_dir.mkdir(mode=0o700)  # Exclusive reservation of the label, even if interrupted.
     private_write(run_dir / 'inputs.json', {'manifest': manifest, 'cases': cases, 'retry_of': retry_of})
     private_write(run_dir / 'approval.json', approval)
+    tracing_failed = False
+    if trace and tracer is None:
+        try:
+            from evals.tracing import configured
+            tracer = configured(run_dir / 'trace-status.jsonl')
+        except Exception:
+            tracing_failed = True
     fd = os.open(results / (run_label + '.csv'), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     calls, known_cost, retained = 0, Decimal(0), Decimal(0)
     stop_reason = 'completed'
@@ -398,6 +409,16 @@ def run_evaluation(manifest, snapshot, cases, run_label, *, live=False, call_cap
                        timestamp=datetime.now(timezone.utc).isoformat(), prompt_file=manifest['prompt_file'],
                        prompt_hash=manifest['prompt_hash'], snapshot_hash=manifest['snapshot_hash'],
                        model=manifest['model'], temperature=manifest['temperature'])
+            trace_identity = None
+            row['trace_status'] = 'trace failed' if tracing_failed else 'disabled'
+            if trace or tracer is not None:
+                try:
+                    from evals.tracing import ticket
+                    trace_identity = ticket()
+                    row['langsmith_trace_id'] = trace_identity['id']
+                    row['trace_status'] = 'pending' if tracer is not None and getattr(tracer, 'ready', True) else 'trace failed'
+                except Exception:
+                    row['trace_status'] = 'trace failed'
             # The durable claim precedes dispatch. An interrupted attempt is never silently reused.
             private_write(run_dir / (case['case_id'] + '.claim.json'), {'reserved_usd': str(PER_CALL_RESERVATION)})
             calls += 1
@@ -425,6 +446,16 @@ def run_evaluation(manifest, snapshot, cases, run_label, *, live=False, call_cap
             writer.writerow(row)
             stream.flush()
             os.fsync(stream.fileno())
+            # The immutable row is durable before any best-effort telemetry submission.
+            if tracer is not None and trace_identity is not None:
+                try:
+                    tracer.submit(trace_identity, row, case, manifest,
+                                  llm_start=transport.started_at, llm_end=transport.ended_at)
+                except Exception:
+                    try:
+                        tracer._event(trace_identity, row, 'trace failed', 'submission_failed')
+                    except Exception:
+                        pass
             if measured is None:
                 stop_reason = 'usage_unknown_reservation_retained'
                 break
@@ -434,6 +465,12 @@ def run_evaluation(manifest, snapshot, cases, run_label, *, live=False, call_cap
                'estimated_known_cost_usd': str(known_cost), 'unknown_cost_reservation_usd': str(retained),
                'accounted_and_reserved_usd': str(known_cost + retained), 'stop_reason': stop_reason}
     private_write(run_dir / 'summary.json', summary)
+    # Optional CLI observation occurs only AFTER every Writer attempt and durable row.
+    if tracer is not None and trace_wait_seconds:
+        try:
+            tracer.wait(timeout=trace_wait_seconds)
+        except Exception:
+            pass
     return summary
 
 
@@ -447,6 +484,7 @@ def main(argv=None):
     parser.add_argument('--run-label', required=True)
     parser.add_argument('--call-cap', type=int)
     parser.add_argument('--live', action='store_true')
+    parser.add_argument('--trace', action='store_true', help='Best-effort environment-only LangSmith export')
     parser.add_argument('--approval-file', type=Path)
     parser.add_argument('--retry-of', help='Original run label; manual transport retry only')
     args = parser.parse_args(argv)
@@ -461,7 +499,8 @@ def main(argv=None):
                 (ROOT / 'evals/outputs').resolve()), 'A private owner authorization is required')
             approval = strict_json(args.approval_file.read_bytes())
         summary = run_evaluation(manifest, snapshot, cases, args.run_label, live=args.live,
-                                 call_cap=args.call_cap, approval=approval, retry_of=args.retry_of)
+                                 call_cap=args.call_cap, approval=approval, retry_of=args.retry_of, trace=args.trace,
+                                 trace_wait_seconds=10 if args.trace else 0)
         print(dumps(summary))
         return 0
     except Exception:
