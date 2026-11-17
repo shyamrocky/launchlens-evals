@@ -43,10 +43,15 @@ approval; this runner accepts only the unchanged baseline.
 ## Cases and dry run
 
 The golden dataset is public by design. Do not ignore `evals/cases/`.
-`evals/cases/golden_v0.json` contains the 30 owner-written notes converted verbatim
+`evals/cases/golden_v1.json` contains the 30 owner-written notes converted verbatim
 from the reviewed draft, plus approved claims, CTA, hashtag rule, scoring rules,
-pass bars, provenance and the recorded sealed draw. It remains draft v0; v1 is
-frozen only after review and the separately authorized smoke test.
+pass bars, provenance and the recorded sealed draw. Version v1 is frozen after
+owner review and smoke testing; golden_v0.json remains unchanged as history.
+The frozen rules allow "new" and the brand name, treat "beloved" for cherry as
+allowed/advisory, and mark unsupported product descriptors as critical failures.
+The manifest pins the dataset file and its exact byte hash. The CLI defaults to
+that file; an explicit --cases file must match the pinned hash. Hash drift is
+rejected before snapshot preparation. The reader requires version v1/status frozen.
 
 Each record contains `case_id`, `type`, `slice`, `intent`, `pmm_note`,
 `expected_behavior`, `critical_failures` and `sealed`. Types are `normal`, `edge`,
@@ -78,7 +83,7 @@ traces or network activity. Use a local shell variable for the private snapshot:
 
 ```sh
 PYTHONPATH=src:. tools/agent_foundation/.venv/bin/python -B -m evals.runner \
-  --snapshot "$EVAL_SNAPSHOT" --cases evals/cases/golden_v0.json --run-label smoke_v0 \
+  --snapshot "$EVAL_SNAPSHOT" --run-label dry_v1 \
   --mode smoke --case-ids "$CASE_1" "$CASE_2" "$CASE_3" "$CASE_4" "$CASE_5"
 ```
 

@@ -94,6 +94,9 @@ def load_manifest(path=MANIFEST):
     require(Decimal(value['per_call_reservation_usd']) == PER_CALL_RESERVATION and
             Decimal(value['reservation_usd']) == PER_CALL_RESERVATION * value['call_cap'] <= MAX_RESERVATION,
             'Unapproved reservation')
+    require(value.get('dataset_file') == 'evals/cases/golden_v1.json' and
+            type(value.get('dataset_sha256')) is str and
+            re.fullmatch(r'[0-9a-f]{64}', value['dataset_sha256']), 'Invalid frozen dataset binding')
     cfg = configuration()
     spec = profile()['roles']['package_writer']
     require(value['package_configuration_sha256'] == CONFIG_SHA256 and
@@ -170,10 +173,10 @@ APPROVED_CLAIMS = {
 
 
 def validate_dataset(dataset):
-    """Validate public v0 metadata and all 30 records without generating/scoring."""
+    """Validate frozen v1 metadata and all 30 records without generating/scoring."""
     from launchlens.linkedin_drafting import CTA
-    require(type(dataset) is dict and dataset.get('dataset_version') == 'v0', 'Unknown dataset version')
-    require(dataset.get('status') == 'draft', 'Unexpected dataset status')
+    require(type(dataset) is dict and dataset.get('dataset_version') == 'v1', 'Unknown dataset version')
+    require(dataset.get('status') == 'frozen', 'Unexpected dataset status')
     require(dataset.get('approved_claims') == APPROVED_CLAIMS and dataset.get('fixed_cta') == CTA,
             'Dataset claims or CTA differ')
     require(dataset.get('hashtag_rule') == {
@@ -213,12 +216,15 @@ def validate_dataset(dataset):
     return cases
 
 
-def cases_from(path, *, mode='working', case_ids=None):
+def cases_from(path, *, mode='working', case_ids=None, expected_hash=None):
     """Select before preparing requests; never expose sealed cases in Phase 0."""
     path = Path(path)
-    require(path.name != '.env', 'Invalid cases source')
+    require(path.name != '.env' and not path.is_symlink(), 'Invalid cases source')
     require(mode in {'working', 'smoke'}, 'Unsupported Phase 0 selection mode')
-    cases = validate_dataset(strict_json(path.read_bytes()))
+    raw = path.read_bytes()
+    if expected_hash is not None:
+        require(sha(raw) == expected_hash, 'Frozen dataset hash differs')
+    cases = validate_dataset(strict_json(raw))
     by_id = {c['case_id']: c for c in cases}
     if case_ids is not None:
         require(type(case_ids) is list and case_ids and len(set(case_ids)) == len(case_ids),
@@ -435,7 +441,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--manifest', type=Path, default=MANIFEST)
     parser.add_argument('--snapshot', type=Path, required=True)
-    parser.add_argument('--cases', type=Path, required=True)
+    parser.add_argument('--cases', type=Path, help='Defaults to the manifest-pinned frozen dataset')
     parser.add_argument('--mode', choices=('working', 'smoke'), default='smoke')
     parser.add_argument('--case-ids', nargs='+', help='Explicit working case IDs in execution order')
     parser.add_argument('--run-label', required=True)
@@ -446,8 +452,9 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         manifest = load_manifest(args.manifest)
+        cases = cases_from(args.cases or ROOT / manifest['dataset_file'], mode=args.mode,
+                           case_ids=args.case_ids, expected_hash=manifest['dataset_sha256'])
         snapshot = load_snapshot(args.snapshot, manifest)
-        cases = cases_from(args.cases, mode=args.mode, case_ids=args.case_ids)
         approval = None
         if args.live:
             require(args.approval_file is not None and args.approval_file.resolve().is_relative_to(

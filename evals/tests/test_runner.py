@@ -80,7 +80,7 @@ def synthetic_dataset():
                           'expected_behavior': 'OFFLINE SYNTHETIC: remain inside the contract.',
                           'critical_failures': [], 'sealed': cid in ev.SEALED_IDS})
     return {
-        'dataset_version': 'v0', 'status': 'draft', 'approved_claims': deepcopy(ev.APPROVED_CLAIMS),
+        'dataset_version': 'v1', 'status': 'frozen', 'approved_claims': deepcopy(ev.APPROVED_CLAIMS),
         'fixed_cta': "What would you like to know about Cherry Float's flavor inspiration?",
         'hashtag_rule': {'count': 3, 'nonempty': True, 'fixed_values': None,
                          'claim_bearing_hashtags_require_support': True},
@@ -295,10 +295,12 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(len(ev.cases_from(path)), 24)
         for issue in ('missing-note', 'missing-rules', 'missing-case', 'duplicate-id',
                       'wrong-type', 'wrong-slice', 'wrong-seed', 'wrong-sealed-flag',
-                      'wrong-critical-type', 'empty-intent', 'too-long-note'):
+                      'wrong-critical-type', 'empty-intent', 'too-long-note', 'draft-status', 'old-version'):
             with self.subTest(issue=issue):
                 bad = deepcopy(dataset)
-                if issue == 'missing-note': del bad['cases'][0]['pmm_note']
+                if issue == 'draft-status': bad['status'] = 'draft'
+                elif issue == 'old-version': bad['dataset_version'] = 'v0'
+                elif issue == 'missing-note': del bad['cases'][0]['pmm_note']
                 elif issue == 'missing-rules': del bad['scoring_rules']
                 elif issue == 'missing-case': bad['cases'].pop()
                 elif issue == 'duplicate-id': bad['cases'][1]['case_id'] = bad['cases'][0]['case_id']
@@ -373,7 +375,9 @@ class RunnerTests(unittest.TestCase):
         for invalid in (['N-01', 'N-01'], ['UNKNOWN'], []):
             with self.assertRaises(ev.EvalError):
                 ev.cases_from(path, case_ids=invalid)
-        with patch.object(ev, 'load_snapshot', return_value=self.snapshot), \
+        manifest = dict(self.manifest, dataset_sha256=ev.sha(path.read_bytes()))
+        with patch.object(ev, 'load_manifest', return_value=manifest), \
+                patch.object(ev, 'load_snapshot', return_value=self.snapshot), \
                 patch.object(ev, 'run_evaluation', wraps=ev.run_evaluation) as run, \
                 patch('sys.stdout', new_callable=StringIO) as output:
             status = ev.main(['--snapshot', 'synthetic-unused.json', '--cases', str(path),
@@ -382,6 +386,30 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(status, 0)
             self.assertEqual([c['case_id'] for c in run.call_args.args[2]], chosen)
             self.assertEqual(json.loads(output.getvalue())['calls_made'], 0)
+
+    def test_frozen_dataset_binding_default_selection_and_hash_rejection(self):
+        dataset = synthetic_dataset()
+        directory = self.root / 'evals/cases'
+        directory.mkdir(parents=True)
+        path = directory / 'golden_v1.json'
+        path.write_text(dumps(dataset))
+        manifest = dict(self.manifest, dataset_sha256=ev.sha(path.read_bytes()))
+        selected = ['N-01', 'N-12', 'E-07', 'KF-02', 'A-02']
+        with patch.object(ev, 'ROOT', self.root), \
+                patch.object(ev, 'load_manifest', return_value=manifest), \
+                patch.object(ev, 'load_snapshot', return_value=self.snapshot) as snapshot, \
+                patch('sys.stdout', new_callable=StringIO) as output:
+            args = ['--snapshot', 'synthetic-unused.json', '--run-label', 'synthetic-v1',
+                    '--case-ids', *selected]
+            self.assertEqual(ev.main(args), 0)
+            self.assertEqual(json.loads(output.getvalue())['cases_prepared'], 5)
+            self.assertEqual(json.loads(output.getvalue())['call_cap'], 6)
+            snapshot.reset_mock()
+            path.write_text(dumps(dataset) + '\n')
+            self.assertEqual(ev.main(args), 1)
+            snapshot.assert_not_called()
+        with self.assertRaisesRegex(ev.EvalError, 'dataset hash'):
+            ev.cases_from(path, expected_hash=manifest['dataset_sha256'])
 
 
 if __name__ == '__main__':
