@@ -20,5 +20,12 @@
   "pricing_source": "configured_profile_not_verified_current_pricing",
   "execution_authority": "Separate owner run smoke test instruction required; this manifest is not spending authorization.",
   "dataset_file": "evals/cases/golden_v1.json",
-  "dataset_sha256": "171b0af3aed00ba3697e5a3839ec0df9d96c80be77bf4b68b08b3ca82dd5ce21"
+  "dataset_sha256": "171b0af3aed00ba3697e5a3839ec0df9d96c80be77bf4b68b08b3ca82dd5ce21",
+  "baseline": {
+    "mode": "baseline",
+    "run_label": "baseline_v1",
+    "dataset_version": "v1",
+    "call_cap": 30,
+    "reservation_usd": "4.423680"
+  }
 }

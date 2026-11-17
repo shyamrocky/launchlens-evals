@@ -63,8 +63,9 @@ metadata and scoring rules never enter the Writer request.
 The seed is fixed at **20261115**. Sealed IDs are **A-01, E-01, E-06, KF-03,
 KF-04, N-05**. They are copied from the approved draw, never redrawn. Exactly
 24 cases remain working. The reader's default working selection excludes all
-sealed cases. Phase 0 refuses explicit sealed IDs, including direct execution;
-this change does not enable sealed-set generation or scoring.
+sealed cases. Smoke and ordinary working modes refuse sealed IDs, including
+direct execution. Only the separately authorized baseline mode may generate them;
+it does not enable sealed-set scoring or content inspection.
 
 CLI mode defaults to `smoke`, requiring 5–6 explicit working IDs using
 `--case-ids`. Their requested order is preserved. Unknown, duplicate and sealed
@@ -74,7 +75,7 @@ own approval and configuration. There is no silent first-six smoke selection.
 
 Notes are limited
 to 1,000 characters, matching the inherited input limit. No sealed cases enter
-Phase 0. Before committing cases, apply the canonical provenance rules, pre-commit
+smoke mode. Before committing cases, apply the canonical provenance rules, pre-commit
 scan and owner approval. The owner's typed-notes exception never permits copying
 other saved-run fields, Reviewer findings or outputs into the dataset.
 
@@ -111,7 +112,8 @@ environment-only mode; it never opens `.env`, discovers unrelated service keys,
 prints credentials or saves request headers. Do not paste secrets into command
 arguments, tracked files or terminal output.
 
-A hard maximum of six calls and $0.884736 reservation applies per run. A smaller
+Outside the baseline-only exception below, a hard maximum of six calls and
+$0.884736 reservation applies per run. A smaller
 `--call-cap` is allowed only with matching authorization. Reserve $0.147456 before
 each attempt; count transport failures and retain the reservation when usage is
 unknown. Stop after unknown usage, with no automatic retry. Prices are configured
@@ -190,6 +192,69 @@ own authorization. Only identical cases whose original attempt was a transport
 error or timeout qualify. They become attempt 2; the original row is unchanged.
 A third attempt or retry of a content failure is refused. Both attempts count in
 cost/reliability reporting. Incomplete private artifacts require manual review.
+
+## Baseline-only mode and sealed-output isolation
+
+The baseline exception is valid only for --mode baseline --run-label baseline_v1.
+It requires all 30 exact cases from the hash-pinned frozen v1 dataset, in dataset
+order. Partial selections, case overrides, retries, other labels and caps other
+than 30 are refused. The manifest retains its ordinary six-call/$0.884736 policy
+and adds a separate baseline policy: 30 calls, reservation $4.423680 (30 times
+$0.147456). Model, temperature 0, production prompt/hash, request settings,
+permissions and transport remain unchanged. Neither mode nor manifest grants
+permission to spend; a separate owner go is required after the dry-run checkpoint.
+
+A baseline authorization binds owner_instruction=run baseline, mode=baseline,
+run_label, manifest_hash, cases_hash, dataset_hash, sorted sealed_ids, call_cap=30
+and reservation_usd=4.423680. Smoke authorizations do not authorize the baseline.
+Baseline manual retries are refused until separately approved and implemented.
+Each case has one attempt. Errors are recorded without replay. Only in baseline
+mode, unknown usage retains the full per-attempt reservation and execution
+continues within the 30-call bound; ordinary modes still stop on unknown usage.
+Local response-persistence failures stop execution. No run artifacts are overwritten.
+
+Baseline output paths, all ignored and private:
+
+- evals/results/baseline_v1.csv: working 24 only, including extracted post text.
+- evals/results/baseline_v1_sealed.csv: sealed six content, never opened for reports.
+- evals/results/baseline_v1_sealed_metrics.csv: allowlisted metrics only.
+- evals/outputs/baseline_v1/working/: working raw responses and attempt claims.
+- evals/outputs/baseline_v1/sealed/: sealed raw responses and attempt claims.
+
+Both content CSVs and the sealed metrics CSV are exclusively created, with each
+attempt flushed/fsynced immediately. Sealed parsing/extraction only stores output
+and determines attempt status; no contract, citation or other content checks run
+on it. Neither console summaries nor reports expose sealed post text, raw output,
+code-check details or error messages. Sealed IDs/notes are not added to reports.
+
+Baseline tracing is enabled automatically. It retains one root and one Writer
+child per case, with asynchronous best-effort delivery. Sealed traces have empty
+inputs and only status/usage outputs; no case note or post text is exported.
+Metadata still identifies the experiment/settings and numeric attempt metrics.
+Working traces retain their existing allowlisted content. Confirm delivery only
+from the append-only local sidecar; never use deprecated run-read APIs.
+
+Offline reporting uses evals/reporting.py. It opens the working CSV/responses and
+the sealed metrics CSV, never the sealed content CSV or sealed raw responses.
+The generic trace-status join also rejects sealed content CSVs. Code checks run
+only on working returned responses; factual support remains human review. Sealed
+reporting produces numeric/status aggregates only. Totals include every recorded
+attempt, unknown-cost reservations and all-attempt latency. P95 uses inclusive
+linear interpolation. No report, result or raw artifact is a public commit candidate.
+
+Network-blocked dry-run shape (no spending authorization is created):
+
+```sh
+PYTHONPATH=src:. tools/agent_foundation/.venv/bin/python -B -m evals.runner \
+  --snapshot "$EVAL_SNAPSHOT" --mode baseline --run-label baseline_v1 --trace
+```
+
+After a separately approved live run, offline working/sealed-safe reporting:
+
+```sh
+PYTHONPATH=src:. tools/agent_foundation/.venv/bin/python -B -m evals.reporting \
+  --snapshot "$EVAL_SNAPSHOT"
+```
 
 Raw results, run IDs, trace IDs, private inputs and execution records never enter
 Git. Only separately curated, scanned and owner-approved results may be published

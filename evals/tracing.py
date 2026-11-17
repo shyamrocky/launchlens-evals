@@ -22,7 +22,7 @@ METADATA = ('run_label', 'case_id', 'prompt_file', 'prompt_hash', 'model',
             'temperature', 'run_status', 'input_tokens', 'output_tokens',
             'cost_usd', 'latency_ms', 'error_message', 'attempt_no')
 SAFE_ERRORS = {'', 'provider_timeout', 'provider_or_transport_failure',
-               'output_cannot_be_parsed_or_extracted'}
+               'output_cannot_be_parsed_or_extracted', 'local_persistence_failed'}
 
 
 def now():
@@ -77,8 +77,13 @@ def trace_records(identity, row, case, manifest, *, secrets=(), llm_start=None, 
             metadata[field] = int(metadata[field])
     if metadata.get('cost_usd') not in ('', None):
         metadata['total_cost'] = float(metadata['cost_usd'])
-    inputs = {'pmm_note': case['user_notes']}
-    outputs = {'linkedin_post': row.get('linkedin_post', ''), 'status': row['run_status']}
+    sealed = case.get('sealed', False) or case['case_id'] in {'A-01', 'E-01', 'E-06', 'KF-03', 'KF-04', 'N-05'}
+    if sealed:
+        metadata.update(sealed=True, input_capture='sealed_metadata_only')
+    inputs = {} if sealed else {'pmm_note': case['user_notes']}
+    outputs = {'status': row['run_status']}
+    if not sealed:
+        outputs['linkedin_post'] = row.get('linkedin_post', '')
     if all(metadata.get(k) not in ('', None) for k in ('input_tokens', 'output_tokens')):
         outputs['usage_metadata'] = {k: metadata[k] for k in ('input_tokens', 'output_tokens')}
         outputs['usage_metadata']['total_tokens'] = metadata['input_tokens'] + metadata['output_tokens']
@@ -192,6 +197,8 @@ def configured(sidecar):
 
 def resolved_rows(results, sidecar):
     """Join delivery events for reporting without rewriting the attempt CSV."""
+    if Path(results).name.endswith('_sealed.csv'):
+        raise ValueError('Sealed content reports are forbidden; use the metrics-only file')
     with Path(results).open(newline='') as stream:
         rows = list(csv.DictReader(stream))
     events = {}

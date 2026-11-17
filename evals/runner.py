@@ -6,6 +6,7 @@ private; only synthetic tests and owner-reviewed cases may enter the public repo
 from __future__ import annotations
 
 import argparse
+from contextlib import ExitStack
 from copy import deepcopy
 import csv
 from datetime import datetime, timezone
@@ -33,6 +34,10 @@ MODEL = 'NousResearch/Hermes-4-405B'
 SMOKE_CAP = 6
 PER_CALL_RESERVATION = Decimal('0.147456')
 MAX_RESERVATION = Decimal('0.884736')
+BASELINE = {'mode': 'baseline', 'run_label': 'baseline_v1', 'dataset_version': 'v1',
+            'call_cap': 30, 'reservation_usd': '4.423680'}
+METRIC_COLUMNS = ('case_id', 'attempt_no', 'run_status', 'input_tokens', 'output_tokens',
+                  'cost_usd', 'latency_ms', 'langsmith_trace_id', 'trace_status')
 COLUMNS = (
     'run_label', 'case_id', 'attempt_no', 'timestamp', 'prompt_file', 'prompt_hash',
     'snapshot_hash', 'model', 'temperature', 'run_status', 'error_message',
@@ -97,6 +102,7 @@ def load_manifest(path=MANIFEST):
     require(value.get('dataset_file') == 'evals/cases/golden_v1.json' and
             type(value.get('dataset_sha256')) is str and
             re.fullmatch(r'[0-9a-f]{64}', value['dataset_sha256']), 'Invalid frozen dataset binding')
+    require(value.get('baseline') == BASELINE, 'Invalid baseline-only policy')
     cfg = configuration()
     spec = profile()['roles']['package_writer']
     require(value['package_configuration_sha256'] == CONFIG_SHA256 and
@@ -217,10 +223,12 @@ def validate_dataset(dataset):
 
 
 def cases_from(path, *, mode='working', case_ids=None, expected_hash=None):
-    """Select before preparing requests; never expose sealed cases in Phase 0."""
+    """Select before preparing requests; sealed selection is restricted to the pinned full baseline."""
     path = Path(path)
     require(path.name != '.env' and not path.is_symlink(), 'Invalid cases source')
-    require(mode in {'working', 'smoke'}, 'Unsupported Phase 0 selection mode')
+    require(mode in {'working', 'smoke', 'baseline'}, 'Unsupported evaluation selection mode')
+    if mode == 'baseline':
+        require(case_ids is None and expected_hash is not None, 'Baseline requires the full pinned dataset')
     raw = path.read_bytes()
     if expected_hash is not None:
         require(sha(raw) == expected_hash, 'Frozen dataset hash differs')
@@ -234,7 +242,7 @@ def cases_from(path, *, mode='working', case_ids=None, expected_hash=None):
         selected = [by_id[cid] for cid in case_ids]
     else:
         require(mode != 'smoke', 'Smoke mode requires explicit working case IDs')
-        selected = [c for c in cases if not c['sealed']]
+        selected = cases if mode == 'baseline' else [c for c in cases if not c['sealed']]
     if mode == 'smoke':
         require(5 <= len(selected) <= 6, 'Smoke selection must contain 5 or 6 working cases')
     # Internal compatibility mapping only: preserve public type/slice and note text.
@@ -252,14 +260,19 @@ def private_write(path, data):
         os.fsync(stream.fileno())
 
 
-def check_approval(approval, manifest, cases, run_label, cap):
+def check_approval(approval, manifest, cases, run_label, cap, mode='working'):
     """A separately provisioned, private execution authorization; never made by dry-run."""
-    require(type(approval) is dict and approval.get('owner_instruction') == 'run smoke test' and
+    instruction = 'run baseline' if mode == 'baseline' else 'run smoke test'
+    if mode == 'baseline':
+        require(type(approval) is dict and approval.get('mode') == mode and
+                approval.get('dataset_hash') == manifest['dataset_sha256'] and
+                approval.get('sealed_ids') == sorted(SEALED_IDS), 'Baseline authorization binding differs')
+    require(type(approval) is dict and approval.get('owner_instruction') == instruction and
             approval.get('run_label') == run_label and approval.get('manifest_hash') == sha(dumps(manifest).encode()) and
             approval.get('cases_hash') == sha(dumps(cases).encode()) and
             approval.get('call_cap') == cap and
             approval.get('reservation_usd') == str(PER_CALL_RESERVATION * cap),
-            'Separate matching owner smoke authorization is required')
+            'Separate matching owner execution authorization is required')
 
 
 def extract_linkedin(candidate):
@@ -297,6 +310,7 @@ class AttemptTransport:
         self.status = None
         self.used = False
         self.started_at = self.ended_at = None
+        self.persistence_failed = False
 
     def __call__(self, payload):
         require(not self.used and payload == self.expected, 'Attempt or prepared request differs')
@@ -312,7 +326,11 @@ class AttemptTransport:
             raise EvalError('Provider attempt failed') from None
         finally:
             self.ended_at = datetime.now(timezone.utc)
-        private_write(self.raw_path, reply.body)
+        try:
+            private_write(self.raw_path, reply.body)
+        except OSError:
+            self.persistence_failed = True
+            raise EvalError('Local response persistence failed') from None
         if reply.status != 200 or reply.credential_redacted:
             self.status = 'transport_error'
             raise EvalError('Provider response was not usable')
@@ -328,6 +346,7 @@ class AttemptTransport:
 
 def validate_retry(results, outputs, retry_of, cases, manifest):
     origin = identifier(retry_of)
+    require(origin != BASELINE['run_label'], 'Baseline retries require separate owner approval and implementation')
     with (results / (origin + '.csv')).open(newline='') as stream:
         rows = {row['case_id']: row for row in csv.DictReader(stream)}
     prior = strict_json((outputs / origin / 'inputs.json').read_bytes())
@@ -345,27 +364,46 @@ def validate_retry(results, outputs, retry_of, cases, manifest):
 
 
 def run_evaluation(manifest, snapshot, cases, run_label, *, live=False, call_cap=None,
-                   approval=None, wire_factory=None, storage_root=ROOT, retry_of=None, trace=False, tracer=None, trace_wait_seconds=0):
+                   approval=None, wire_factory=None, storage_root=ROOT, retry_of=None, trace=False, tracer=None, trace_wait_seconds=0, mode='working'):
     """One attempt per selected case. Injected wire factory is for offline testing."""
     identifier(run_label)
-    cap = manifest['call_cap'] if call_cap is None else call_cap
-    require(type(cap) is int and 0 < cap <= manifest['call_cap'] <= SMOKE_CAP, 'Call cap exceeds approval')
-    require(Decimal(manifest['reservation_usd']) <= MAX_RESERVATION and
-            PER_CALL_RESERVATION * cap <= Decimal(manifest['reservation_usd']), 'Reservation exceeds approval')
+    require(mode in {'working', 'smoke', 'baseline'}, 'Unsupported evaluation mode')
+    baseline = mode == 'baseline'
+    if baseline:
+        require(run_label == BASELINE['run_label'] and manifest.get('baseline') == BASELINE and
+                retry_of is None, 'Baseline mode requires its exclusive label and no retry')
+        cap = BASELINE['call_cap'] if call_cap is None else call_cap
+        require(type(cap) is int and cap == 30, 'Baseline cap must be exactly 30')
+        pinned = cases_from(ROOT / manifest['dataset_file'], mode='baseline',
+                            expected_hash=manifest['dataset_sha256'])
+        require(cases == pinned, 'Baseline must contain all exact pinned cases in dataset order')
+        reservation = Decimal(BASELINE['reservation_usd'])
+        trace = True
+    else:
+        require(run_label != BASELINE['run_label'], 'Baseline label requires baseline mode')
+        cap = manifest['call_cap'] if call_cap is None else call_cap
+        require(type(cap) is int and 0 < cap <= manifest['call_cap'] <= SMOKE_CAP, 'Call cap exceeds approval')
+        reservation = Decimal(manifest['reservation_usd'])
+        require(reservation <= MAX_RESERVATION, 'Reservation exceeds approval')
+        require(not any(c.get('sealed', False) or c['case_id'] in SEALED_IDS for c in cases),
+                'Sealed cases are refused outside baseline mode')
+    require(PER_CALL_RESERVATION * cap <= reservation, 'Reservation exceeds approval')
     require(cases and len({identifier(c['case_id']) for c in cases}) == len(cases), 'Duplicate or missing cases')
-    require(not any(c.get('sealed', False) for c in cases), 'Sealed cases are refused in Phase 0')
     # Prepare and validate before making any output directory or acquiring credentials.
     requests = [prepare_request(snapshot, case['user_notes'], manifest) for case in cases[:cap]]
     results, outputs = Path(storage_root) / 'evals/results', Path(storage_root) / 'evals/outputs'
     require(not (results / (run_label + '.csv')).exists() and not (outputs / run_label).exists(),
             'Run label already exists; use a new label')
+    if baseline:
+        require(not (results / (run_label + '_sealed.csv')).exists() and
+                not (results / (run_label + '_sealed_metrics.csv')).exists(), 'Sealed run artifacts already exist')
     if retry_of:
         validate_retry(results, outputs, retry_of, cases, manifest)
     if not live:
         return {'mode': 'dry_run', 'cases_prepared': len(requests), 'calls_made': 0,
                 'call_cap': cap, 'maximum_reservation_usd': str(PER_CALL_RESERVATION * cap),
                 'cases_beyond_cap': max(0, len(cases) - cap)}
-    check_approval(approval, manifest, cases, run_label, cap)
+    check_approval(approval, manifest, cases, run_label, cap, mode)
     if wire_factory is None:
         # Environment-only provisioning at separately authorized execution time.
         # Never read .env or discover unrelated service credentials.
@@ -389,18 +427,30 @@ def run_evaluation(manifest, snapshot, cases, run_label, *, live=False, call_cap
             tracer = configured(run_dir / 'trace-status.jsonl')
         except Exception:
             tracing_failed = True
-    fd = os.open(results / (run_label + '.csv'), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     calls, known_cost, retained = 0, Decimal(0), Decimal(0)
     stop_reason = 'completed'
-    with os.fdopen(fd, 'w', newline='') as stream:
-        writer = csv.DictWriter(stream, fieldnames=COLUMNS)
-        writer.writeheader()
-        stream.flush()
+    with ExitStack() as stack:
+        def new_csv(path, columns):
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            stream = stack.enter_context(os.fdopen(fd, 'w', newline=''))
+            writer = csv.DictWriter(stream, fieldnames=columns)
+            writer.writeheader()
+            stream.flush()
+            os.fsync(stream.fileno())
+            return writer, stream
+        writer, stream = new_csv(results / (run_label + '.csv'), COLUMNS)
+        if baseline:
+            sealed_writer, sealed_stream = new_csv(results / (run_label + '_sealed.csv'), COLUMNS)
+            metric_writer, metric_stream = new_csv(results / (run_label + '_sealed_metrics.csv'), METRIC_COLUMNS)
+            (run_dir / 'working').mkdir(mode=0o700)
+            (run_dir / 'sealed').mkdir(mode=0o700)
         for case, (state, payload) in zip(cases[:cap], requests):
-            if calls >= cap or known_cost + retained + PER_CALL_RESERVATION > Decimal(manifest['reservation_usd']):
+            if calls >= cap or known_cost + retained + PER_CALL_RESERVATION > reservation:
                 stop_reason = 'cap_reached'
                 break
-            raw = run_dir / (case['case_id'] + '.bin')
+            sealed = case['case_id'] in SEALED_IDS
+            target_dir = run_dir / ('sealed' if sealed else 'working') if baseline else run_dir
+            raw = target_dir / (case['case_id'] + '.bin')
             transport = AttemptTransport(payload, manifest, wire_factory, raw)
             call = ContentCall(transport, stage='package_writer', model_id=manifest['model'],
                                projector=project_package_context)
@@ -420,7 +470,7 @@ def run_evaluation(manifest, snapshot, cases, run_label, *, live=False, call_cap
                 except Exception:
                     row['trace_status'] = 'trace failed'
             # The durable claim precedes dispatch. An interrupted attempt is never silently reused.
-            private_write(run_dir / (case['case_id'] + '.claim.json'), {'reserved_usd': str(PER_CALL_RESERVATION)})
+            private_write(target_dir / (case['case_id'] + '.claim.json'), {'reserved_usd': str(PER_CALL_RESERVATION)})
             calls += 1
             started = time.monotonic()
             try:
@@ -443,9 +493,16 @@ def run_evaluation(manifest, snapshot, cases, run_label, *, live=False, call_cap
                 known_cost += cost
             else:
                 retained += PER_CALL_RESERVATION
-            writer.writerow(row)
-            stream.flush()
-            os.fsync(stream.fileno())
+            if transport.persistence_failed:
+                row['error_message'] = 'local_persistence_failed'
+            target_writer, target_stream = (sealed_writer, sealed_stream) if sealed else (writer, stream)
+            target_writer.writerow(row)
+            target_stream.flush()
+            os.fsync(target_stream.fileno())
+            if sealed:
+                metric_writer.writerow({k: row[k] for k in METRIC_COLUMNS})
+                metric_stream.flush()
+                os.fsync(metric_stream.fileno())
             # The immutable row is durable before any best-effort telemetry submission.
             if tracer is not None and trace_identity is not None:
                 try:
@@ -456,7 +513,10 @@ def run_evaluation(manifest, snapshot, cases, run_label, *, live=False, call_cap
                         tracer._event(trace_identity, row, 'trace failed', 'submission_failed')
                     except Exception:
                         pass
-            if measured is None:
+            if transport.persistence_failed:
+                stop_reason = 'local_persistence_failed'
+                break
+            if measured is None and not baseline:
                 stop_reason = 'usage_unknown_reservation_retained'
                 break
         if stop_reason == 'completed' and len(cases) > cap:
@@ -479,7 +539,7 @@ def main(argv=None):
     parser.add_argument('--manifest', type=Path, default=MANIFEST)
     parser.add_argument('--snapshot', type=Path, required=True)
     parser.add_argument('--cases', type=Path, help='Defaults to the manifest-pinned frozen dataset')
-    parser.add_argument('--mode', choices=('working', 'smoke'), default='smoke')
+    parser.add_argument('--mode', choices=('working', 'smoke', 'baseline'), default='smoke')
     parser.add_argument('--case-ids', nargs='+', help='Explicit working case IDs in execution order')
     parser.add_argument('--run-label', required=True)
     parser.add_argument('--call-cap', type=int)
@@ -500,7 +560,7 @@ def main(argv=None):
             approval = strict_json(args.approval_file.read_bytes())
         summary = run_evaluation(manifest, snapshot, cases, args.run_label, live=args.live,
                                  call_cap=args.call_cap, approval=approval, retry_of=args.retry_of, trace=args.trace,
-                                 trace_wait_seconds=10 if args.trace else 0)
+                                 trace_wait_seconds=10 if args.trace or args.mode == 'baseline' else 0, mode=args.mode)
         print(dumps(summary))
         return 0
     except Exception:
