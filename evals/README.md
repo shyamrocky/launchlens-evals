@@ -264,3 +264,119 @@ Educational demo: fictional Coca-Cola Cherry Float launch and synthetic scenario
 not affiliated with or endorsed by The Coca-Cola Company. Implementation is
 AI-assisted by OpenAI Codex; design, review and prompt drafting also use Anthropic
 Claude. Source attribution remains in the inherited public-source manifest.
+
+## Phase 4 isolated experiments — staged owner review
+
+The current implementation registers only f1_v1, f2_v1 and f3_v1. Each prompt is
+an independently hash-pinned addition to the unchanged baseline; no fixes are
+combined yet. Production ContentCall and its prompt/hash/permission checks are
+unchanged. The experiment builder uses the existing input/projector/schema and
+asserts that, for the same case, only the system message differs from production.
+It then validates its own manifest-bound request before the unchanged ProviderHTTP
+transport. No production function or private attribute is monkeypatched.
+
+| Run | Fix | Targets | Controls | Cap | Reservation USD |
+|---|---|---:|---:|---:|---:|
+| f1_v1 | F1: approved claim wording | 18 | 3 | 21 | 3.096576 |
+| f2_v1 | F2: note tone/audience | 6 | 3 | 9 | 1.327104 |
+| f3_v1 | F3: field placement | 6 | 3 | 9 | 1.327104 |
+
+Controls are N-12, N-14 and E-04. Ordered IDs live in each public experiment
+manifest and must match the approved registry. Sealed IDs, altered settings,
+modified prompt/dataset/parent hashes, unregistered labels and reused outputs are
+refused. Manifest bounds are maximums, not permission to spend. Each live run
+needs its own owner go and private authorization binding owner_instruction=run
+experiment, mode=experiment, run_label, manifest_hash, cases_hash, dataset_hash,
+candidate_prompt_hash, call_cap, reservation_usd and tracing_required=true.
+Manifest/case authorization hashes use parsed JSON serialized with the existing
+dumps helper. Parent/prompt/dataset hashes bind exact file bytes.
+
+No automatic retry or resume. Every attempted call gets one durable CSV row and
+its raw response (when received), including failed/unparseable attempts. Unknown
+usage retains $0.147456 and stops the experiment, preserving the existing ordinary
+run rule. Output, claim, approval, source and measurement records stay in ignored
+results/outputs. Existing baseline artifacts are never overwritten.
+
+Tracing is mandatory: no disable option exists for Phase 4. Environment-only live
+provisioning requires the selected LangSmith key and project; HTTP delivery remains
+best effort and never retries or blocks Writer execution. Every case has one root
+and one Writer child. In addition to existing metadata, both carry fix_id,
+candidate_prompt_file/hash, run_label, case_role (target/control) and allowlisted
+M1 flags. Working traces contain only the note and extracted post plus usage.
+Sealed trace metadata supports baseline/final identities but always defers M1 and
+excludes note/post content. Final/drift generation is not enabled by these three
+manifests; its frozen prompt and separate manifests require later review.
+
+M1 version m1-v2-hook-body checks BOTH linkedin.content.hook and .body for the
+literal supplied CTA and any hashtag token (# followed by Unicode word characters).
+It reports per-field exact_cta/hashtag booleans and formatting_pass. Paraphrased
+questions remain human judgment. A measured failure is a minor compliance issue;
+M1 never rewrites attempt status, contract/citation scores, text or references.
+Unavailable content is not_evaluated; sealed content is deferred_sealed and is
+never inspected. Each experiment records the same M1 flags in its row, private
+measurement record and trace. Existing validators independently check all five
+formats; those findings do not substitute for human factual/compliance scoring.
+
+The explicit Stage b measure_saved_baseline helper applies M1 and the existing
+four-other-format checks to saved WORKING baseline responses only. It writes a
+new ignored versioned measurement document, preserving original attempts. It is
+not invoked on import, by tests on real data, or by dry runs. Stage a does not
+apply it. Sealed baseline responses remain unopened and unchecked until the joint
+baseline/final reveal.
+
+Owner-score import preserves the source CSV byte-for-byte and stores an ignored
+JSON copy with identical column order, row order and string values. It validates
+exactly 24 unique working IDs and accepted labels; it never repairs labels,
+infers scores or changes notes. Real owner data is not a test fixture and is never
+copied into maintained files. The importer refuses overwrites and records the
+source hash; it makes no service calls. CSV text must be imported as text when
+used in spreadsheet software.
+
+### Proposed feedback attachment after unblinding — no upload yet
+
+After the owner locks/unblinds scores, prepare feedback using local case-ID to
+root-trace-ID joins and delivered sidecar events, including existing baseline
+working traces. Do not read runs back from LangSmith. For each case-root trace:
+
+| Feedback key | Owner source | Feedback representation |
+|---|---|---|
+| contract | contract_citation | score 1/0 for pass/fail; value preserves source label |
+| factual_support | factual_support | score 1/0; value preserves source label |
+| compliance | compliance | score 1/0; value preserves source label |
+| failure_category | failure_category | original string value, including multiple categories |
+| severity | severity | original string value |
+
+The offline feedback_plan helper currently supports the imported baseline working
+scores only and refuses planning before unblinded=true, undelivered traces,
+changed source values or sealed rows. It creates no client and never uploads.
+A later separately authorized publisher can call Client.create_feedback with
+run_id/trace_id from the local root, key, score/value, deterministic feedback_id
+and stop_after_attempt=1 (the installed SDK default would otherwise retry).
+Keep a private append-only acknowledgment outbox, omit post text/owner notes and
+credentials, and do not silently replay failed/unknown writes. Numeric feedback
+is a derived encoding; the imported owner values remain unchanged. No deprecated
+read-back calls are needed. Final/experiment score imports and publishing require
+their own reviewed release. Sealed feedback is forbidden before the joint reveal.
+
+### Final round and version-masked scoring
+
+Only one final round is planned. Combine fixes only after measured owner review,
+freeze the combined prompt, then separately authorize final_v1 on all 30 and
+unchanged-baseline repeats N-09/E-07/A-02, reported separately. If the combined
+prompt misses pass bars, report remaining failures; no further iteration without
+a new owner decision. This implementation cannot execute unregistered final runs.
+
+For blind scoring, shuffle anonymous output labels and keep the mapping/seed in
+a separate ignored private file. Hide run/prompt identity, costs, latency and trace
+links until scoring is locked. Keep working and sealed packets separate; reveal
+sealed baseline/final together only after final prompt freeze and final generation.
+Record prior baseline exposure as a limitation. No sheet or reveal is generated
+by the current build. Regressions must be checked across all quality metrics for
+both targets and controls; require at least two improvements and no control
+regression. Final acceptance uses the frozen full-set bars, not subset targets.
+
+The owner reports a private external backup is already complete. The build does
+not access that location or make another archive. Commit approval is the next
+stop; Stage b baseline measurements and Stage c actual f1_v1 dry run follow only
+after their requested approval boundaries. No paid run or feedback upload is
+implicitly authorized by these instructions or example commands.

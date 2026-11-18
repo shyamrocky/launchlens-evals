@@ -194,8 +194,12 @@ class BaselineTests(unittest.TestCase):
             auth = self.approval(); auth[field] = value
             with self.subTest(field=field), self.assertRaises(ev.EvalError):
                 ev.check_approval(auth, self.manifest, self.cases, 'baseline_v1', 30, 'baseline')
+        original_run = ev.run_evaluation
+        def temporary_run(*args, **kwargs):
+            return original_run(*args, storage_root=self.root, **kwargs)
         with patch.object(ev, 'load_manifest', return_value=self.manifest), \
                 patch.object(ev, 'load_snapshot', return_value=self.snapshot), \
+                patch.object(ev, 'run_evaluation', side_effect=temporary_run), \
                 patch.object(tr, 'configured') as configured, \
                 patch('sys.stdout', new_callable=StringIO) as output:
             code = ev.main(['--snapshot', 'synthetic-unused.json', '--mode', 'baseline',

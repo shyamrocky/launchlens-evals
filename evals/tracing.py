@@ -69,6 +69,17 @@ def trace_records(identity, row, case, manifest, *, secrets=(), llm_start=None, 
     child_end = llm_end or ended
     metadata = {k: row[k] for k in METADATA if k in row}
     metadata['error_message'] = row.get('error_message', '') if row.get('error_message', '') in SAFE_ERRORS else 'operation_failed'
+    from evals.measurement import trace_flags
+    flags = row.get('m1_flags')
+    if type(flags) is str:
+        try: flags = json.loads(flags)
+        except (ValueError, TypeError): flags = None
+    sealed = case.get('sealed', False) or case['case_id'] in {'A-01','E-01','E-06','KF-03','KF-04','N-05'}
+    metadata.update(fix_id=row.get('fix_id', 'baseline'),
+                    candidate_prompt_file=row.get('candidate_prompt_file') or row.get('prompt_file', ''),
+                    candidate_prompt_hash=row.get('candidate_prompt_hash') or row.get('prompt_hash', ''),
+                    case_role=row.get('case_role') or ('control' if case['case_id'] in {'N-12','N-14','E-04'} else 'target'),
+                    m1_flags=trace_flags(flags,sealed=sealed))
     metadata.update(dataset_version='v1', dataset_hash=manifest['dataset_sha256'],
                     ls_provider='nebius', ls_model_name=manifest['model'],
                     input_capture='public_case_note_only', cost_source='configured_profile_rates')
@@ -77,7 +88,6 @@ def trace_records(identity, row, case, manifest, *, secrets=(), llm_start=None, 
             metadata[field] = int(metadata[field])
     if metadata.get('cost_usd') not in ('', None):
         metadata['total_cost'] = float(metadata['cost_usd'])
-    sealed = case.get('sealed', False) or case['case_id'] in {'A-01', 'E-01', 'E-06', 'KF-03', 'KF-04', 'N-05'}
     if sealed:
         metadata.update(sealed=True, input_capture='sealed_metadata_only')
     inputs = {} if sealed else {'pmm_note': case['user_notes']}
