@@ -1,6 +1,6 @@
 """Manifest-bound evaluation experiments; production ContentCall is never overridden.
 
-Only the approved three isolated fixes are executable here. Final/drift manifests
+Only the approved isolated experiments are executable here. Final/drift manifests
 and the single final-round release remain separate owner-review steps.
 """
 from copy import deepcopy
@@ -33,6 +33,27 @@ RUNS = {
               'hash': 'bbdc02cd70d8c99d6ab5d49a160d26f60487b61d99464dc3a4e650d22e0332b6',
               'targets': ['N-01','N-07','N-08','E-07','E-09','KF-02']},
 }
+# V2 alone permits this exact insertion; other experiments retain append-only ancestry.
+F1_V2_BLOCK = b"""LINKEDIN CLAIM WORDING AND FINAL CHECK
+For LinkedIn only, express product characteristics using only the supplied approved wording for eligible claims PROD-002 and PROD-003. Do not add taste, texture, intensity or quality descriptions, including smooth, creamy, refreshing, crisp, bright, bold, fruity, distinct, unique, innovative or equivalent claims, in linkedin.content.hook, linkedin.content.body or linkedin.content.hashtags. Product and brand naming, "new", and "beloved" describing cherry remain allowed; they do not authorize additional product characteristics.
+For LinkedIn only, do not assert launch or availability, including "is here", "now available", "arriving" or equivalent phrasing. Internal drafting permission does not establish launch or availability.
+Before returning the package, silently inspect linkedin.content.hook, linkedin.content.body and every linkedin.content.hashtags item. Remove any taste, texture, intensity or quality wording not supported by the supplied approved claim wording, and remove launch or availability assertions. Preserve the approved facts, allowed naming and wording above, the exact supplied CTA, and exactly three nonempty hashtags. If this check changes a LinkedIn text field, keep its claim_references consistent with that final field under the existing citation rules. This check applies only to LinkedIn; all existing package-wide citation requirements remain in force. Do not output the check or add fields.
+
+"""
+F1_V2_ANCHOR = b'FORMAT TONE POLICY\n'
+RUNS['f1_v2'] = dict(RUNS['f1_v1'],
+                     file='evals/prompts/f1_claim_wording_v2.txt',
+                     hash='8432c0521345444b07b36b97bcfb350c6b3956dc942e2d48d5877b6a174fc079')
+
+
+def approved_ancestry(candidate, baseline, label):
+    if label != 'f1_v2':
+        return candidate.startswith(baseline) and candidate != baseline
+    return (baseline.count(F1_V2_ANCHOR) == 1 and candidate.count(F1_V2_BLOCK) == 1 and
+            candidate.replace(F1_V2_BLOCK, b'', 1) == baseline and
+            candidate == baseline.replace(F1_V2_ANCHOR, F1_V2_BLOCK + F1_V2_ANCHOR, 1))
+
+
 COLUMNS = r.COLUMNS + ('fix_id', 'candidate_prompt_file', 'candidate_prompt_hash', 'case_role', 'm1_flags')
 
 
@@ -76,8 +97,9 @@ def load_experiment(path):
               'Candidate prompt not approved')
     candidate = local_file(value['candidate_prompt_file'], 'evals/prompts').read_bytes()
     baseline = local_file(parent['prompt_file'], 'evals/prompts').read_bytes()
-    r.require(r.sha(candidate) == value['candidate_prompt_hash'] and candidate.startswith(baseline) and
-              candidate != baseline, 'Candidate prompt hash or baseline ancestry differs')
+    r.require(r.sha(candidate) == value['candidate_prompt_hash'] and
+              approved_ancestry(candidate, baseline, value['run_label']),
+              'Candidate prompt hash or baseline ancestry differs')
     cases = r.cases_from(local_file(value['dataset_file'], 'evals/cases'),
                         case_ids=value['case_ids'], expected_hash=value['dataset_sha256'])
     return value, parent, cases

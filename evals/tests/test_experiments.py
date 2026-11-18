@@ -60,7 +60,7 @@ class ExperimentTests(unittest.TestCase):
         with (self.root/'evals/results'/(label+'.csv')).open(newline='') as f:return list(csv.DictReader(f))
 
     def test_all_manifests_exact_caps_roles_and_dry_default(self):
-        for label,count in [('f1_v1',21),('f2_v1',9),('f3_v1',9)]:
+        for label,count in [('f1_v1',21),('f1_v2',21),('f2_v1',9),('f3_v1',9)]:
             with self.subTest(label=label):
                 manifest,parent,cases=ex.load_experiment(self.path(label))
                 self.assertEqual(len(cases),count)
@@ -114,6 +114,86 @@ class ExperimentTests(unittest.TestCase):
         path.write_text(r.dumps(original))
         candidate=self.root/original['candidate_prompt_file'];candidate.write_bytes(candidate.read_bytes()+b'changed')
         with self.assertRaises(r.EvalError):ex.load_experiment(path)
+
+    def test_f1_v2_exact_manifest_ancestry_parity_and_production_guard(self):
+        manifest,parent,cases=ex.load_experiment(self.path('f1_v2'))
+        previous,_,_=ex.load_experiment(self.path('f1_v1'))
+        self.assertEqual(r.differences(previous,manifest),
+                         {'$.run_label','$.candidate_prompt_file','$.candidate_prompt_hash'})
+        baseline=(self.root/parent['prompt_file']).read_bytes()
+        candidate=(self.root/manifest['candidate_prompt_file']).read_bytes()
+        self.assertEqual(r.sha(candidate),'8432c0521345444b07b36b97bcfb350c6b3956dc942e2d48d5877b6a174fc079')
+        self.assertEqual(candidate.replace(ex.F1_V2_BLOCK,b'',1),baseline)
+        self.assertEqual(candidate,baseline.replace(b'FORMAT TONE POLICY\n',ex.F1_V2_BLOCK+b'FORMAT TONE POLICY\n',1))
+        self.assertEqual(r.sha(baseline),'2198dd6d64f5adca13728b6460db14e0bd5e1ab55468534c3994df3ec890b505')
+        self.assertEqual(r.load_package_prompt('package_writer'),baseline.decode())
+        _,payload=r.prepare_request(self.snapshot,cases[0]['user_notes'],parent)
+        original=r.wire_request(payload,parent)
+        _,variant=ex.prepare_candidate(self.snapshot,cases[0]['user_notes'],manifest,parent)
+        self.assertEqual(r.differences(original,variant),{'$.messages[0].content'})
+        payload['messages'][0]['content']=variant['messages'][0]['content']
+        with self.assertRaisesRegex(r.EvalError,'Production prompt'):
+            r.wire_request(payload,parent)
+
+    def assert_v2_ancestry_rejects_even_with_test_rebound_hash(self, candidate):
+        # Synthetic mutation: independently exercise ancestry beyond hash refusal.
+        path=self.path('f1_v2'); manifest=json.loads(path.read_bytes())
+        (self.root/manifest['candidate_prompt_file']).write_bytes(candidate)
+        with self.assertRaises(r.EvalError):ex.load_experiment(path)
+        manifest['candidate_prompt_hash']=r.sha(candidate)
+        path.write_text(r.dumps(manifest))
+        spec=dict(ex.RUNS['f1_v2'],hash=manifest['candidate_prompt_hash'])
+        with patch.dict(ex.RUNS,{'f1_v2':spec}),self.assertRaisesRegex(r.EvalError,'ancestry'):
+            ex.load_experiment(path)
+
+    def test_f1_v2_wrong_block_refused_independently_of_hash(self):
+        manifest,parent,_=ex.load_experiment(self.path('f1_v2'))
+        baseline=(self.root/parent['prompt_file']).read_bytes()
+        bad_block=ex.F1_V2_BLOCK.replace(b'not assert launch',b'assert launch',1)
+        self.assert_v2_ancestry_rejects_even_with_test_rebound_hash(
+            baseline.replace(ex.F1_V2_ANCHOR,bad_block+ex.F1_V2_ANCHOR,1))
+
+    def test_f1_v2_correct_block_wrong_position_refused(self):
+        _,parent,_=ex.load_experiment(self.path('f1_v2'))
+        baseline=(self.root/parent['prompt_file']).read_bytes()
+        self.assert_v2_ancestry_rejects_even_with_test_rebound_hash(baseline+ex.F1_V2_BLOCK)
+
+    def test_f1_v2_one_byte_baseline_change_refused(self):
+        manifest,_,_=ex.load_experiment(self.path('f1_v2'))
+        candidate=(self.root/manifest['candidate_prompt_file']).read_bytes()
+        self.assert_v2_ancestry_rejects_even_with_test_rebound_hash(candidate.replace(b'ROLE',b'role',1))
+
+    def test_existing_experiments_keep_append_only_ancestry(self):
+        for label in ('f1_v1','f2_v1','f3_v1'):
+            with self.subTest(label=label):
+                manifest,parent,_=ex.load_experiment(self.path(label))
+                baseline=(self.root/parent['prompt_file']).read_bytes()
+                candidate=(self.root/manifest['candidate_prompt_file']).read_bytes()
+                self.assertTrue(candidate.startswith(baseline))
+                suffix=candidate[len(baseline):]
+                relocated=baseline.replace(b'FORMAT TONE POLICY\n',suffix+b'FORMAT TONE POLICY\n',1)
+                self.assertFalse(ex.approved_ancestry(relocated,baseline,label))
+                self.assertFalse(ex.approved_ancestry(baseline,baseline,label))
+                self.assertFalse(ex.approved_ancestry(candidate,baseline,'f1_v2'))
+
+    def test_f1_v2_guardrail_tampering_refused(self):
+        path=self.path('f1_v2');original=json.loads(path.read_bytes())
+        changes={'case_ids':['A-01'],'target_ids':['A-01'],'sealed_allowed':True,
+                 'tracing_required':False,'automatic_retries':True,'call_cap':22,
+                 'reservation_usd':'9.000000','temperature':1}
+        for key,value in changes.items():
+            with self.subTest(field=key):
+                bad=dict(original);bad[key]=value;path.write_text(r.dumps(bad))
+                with self.assertRaises(r.EvalError):ex.load_experiment(path)
+        path.write_text(r.dumps(original))
+        with patch.object(tr,'configured') as configured,patch.object(r,'read_selected_keys') as keys:
+            result=ex.run_experiment(path,self.snapshot_path)
+            self.assertEqual(result['calls_made'],0)
+            self.assertEqual(result['call_cap'],21)
+            self.assertEqual(result['reservation_usd'],'3.096576')
+            self.assertTrue(result['tracing_required'])
+            configured.assert_not_called();keys.assert_not_called()
+        self.assertFalse((self.root/'evals/results').exists())
 
     def test_authorization_required_before_credentials_or_artifacts(self):
         auth=self.authorization('f2_v1')
