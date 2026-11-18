@@ -80,7 +80,7 @@ Run `f1_v2`, November 17, 2026. Build commit `de0ce86`. Scored blind by the owne
 | Item | Result | Notes |
 |---|---|---|
 | Targets cleared | 6 / 18 | v1: 9 / 18. Cleared: N-03, N-04, E-03, E-08, E-09, A-02 |
-| Controls held | 1 / 3 across all checks | N-14 held. E-04 became critical ("distinct flavor option", closing question in body). N-12 held on the post but gained email and blog citation failures. v1: 2 / 3 |
+| Controls held | 2 / 3 | Pre-registered definition (contract/citation, factual support, compliance): N-12 and N-14 held; E-04 became critical ("distinct flavor option", closing question in body). N-12 also gained email and blog citation failures, counted under the citation guard (corrected November 18; first recorded as "1 / 3 across all checks"). v1: 2 / 3 |
 | New critical failures | 1 case (E-04) | v1: 1 (N-12) |
 | Email / blog citations (same 21) | 14 / 21, 17 / 21 | Both below the floors (17, 19). Baseline 17 / 19; v1 17 / 13 |
 | Other regressions | Compliance: N-04, N-15, E-04 | New M1 failures: N-02, N-04, KF-01, E-04 (three baseline M1 failures cleared) |

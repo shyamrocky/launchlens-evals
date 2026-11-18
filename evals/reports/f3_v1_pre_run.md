@@ -1,6 +1,7 @@
 # F3 v1 Experiment Note (Pre-Run)
 
-**Status:** Pre-run. Criteria set by the owner. Not yet run. No live calls made.
+**Current status:** Run complete, scored and independently audited (November 18, 2026). F3 v1 not adopted; an F3 v2 is allowed under section 7. See section 9.
+**Original pre-run status:** Pre-run. Criteria set by the owner. Not yet run. No live calls made.
 **Date written:** 2026-11-18
 **Owner:** Shyam
 **Prompt file:** `evals/prompts/f3_field_placement_v1.txt` (built in commit `852b192`; SHA-256 `bbdc02cd70d8c99d6ab5d49a160d26f60487b61d99464dc3a4e650d22e0332b6`, matches the manifest). One LinkedIn-only paragraph, "LINKEDIN FIELD PLACEMENT", appended after FORMAT TONE POLICY; unchanged.
@@ -87,14 +88,24 @@ A good result must not be described as fixing:
 
 ## 9. Results
 
-*To be filled in after the run. Record misses and regressions as well as successes.*
+Run `f3_v1`, November 18, 2026. Pre-run note commit `a04fbcd` at 17:10:27Z, 261 seconds before the first call (17:14:48Z); committed note SHA-256 `dfdf77d3…ad10a5`. Scored blind by the owner (18 shuffled posts, S001–S018: 9 baseline, 9 F3); Codex joined the scores without editing any value. Scores file SHA-256 `f306dab90cfa75ae38d95dfef3f44d8dbbc3e806281bf446789eb7375e49dd82`.
 
 | Item | Result | Notes |
 |---|---|---|
-| Targets cleared (formatting) | ___ / 6 | |
-| Controls held | ___ / 3 | |
-| Newly critical cases | | |
-| Email / blog citations (same 9) | ___ / 9, ___ / 9 | baseline 7 / 9 |
-| M1 (of 9) | | baseline 3 / 9 |
-| Cost and calls used | | |
-| Decision / next step | | |
+| Targets cleared (formatting) | 6 / 6 | Target met. Confirmed by both owner scores and M1 |
+| Controls held | 1 / 3 | Pre-registered definition (contract/citation, factual support, compliance): N-14 held; N-12 and E-04 gained critical descriptors. N-14 also gained a blog citation failure, counted under the citation guard |
+| Newly critical cases | 3 | E-07 ("smooth", "creamy appeal"), N-12 ("bright", "smooth", "unique"), E-04 ("smooth") |
+| Email / blog citations (same 9) | 8 / 9, 5 / 9 | Email passes its floor (7). Blog fails its floor (9): new failures E-04, E-07, KF-02, N-14, all on the blog title. Email: N-08 new (subject line); E-07, KF-02 cleared |
+| Ads (reported) | 8 / 9 | First ads failure in any run: E-04, citation coverage on an ad headline |
+| M1 (of 9) | 9 / 9 | Baseline 3 / 9 |
+| Other changes | Contract 8 to 9; factual 6 to 5; compliance 3 to 8; overall passes 3 to 5 | E-09 and KF-02 now pass everything; N-08's contract failure also cleared in this sample |
+| Cost and calls used | 9 / 9 calls, 0 errors, $0.142239; p50 41.79 s, p95 50.54 s | All 9 calls slower than baseline (baseline p95 35.79 s on these 9). Cost per passing draft $0.028 (baseline $0.047) |
+| Decision / next step | **Not adopted** | Target met, but the control, newly-critical and blog-floor conditions failed. An F3 v2 may be pre-registered (section 7) |
+
+**Independent audit.** A separate review rebuilt every figure from the raw files (scores, mapping, baseline scores, check files, run logs) and found no mismatches; the decision follows mechanically from the four pre-registered rules. It confirmed the pre-run note was committed before the first call with the same contents, all 18 trace IDs match the run files, and all 18 root runs are present in LangSmith with success status. The run files' "pending" trace status is by design; the earlier "delivered" status was the local exporter's acknowledgement, now confirmed by a LangSmith query.
+
+**Scorer consistency.** The blind baseline re-score differed from the official scores on N-01 (tone not marked) and N-08 (contract failure not visible from the post text). Official scores stay authoritative.
+
+**Limits.** Blinding order can't be proved from file times (access time is not a read log, and the time scoring finished was not recorded), though the times fit the sequence. Several baseline posts had been seen in earlier packets. One sample per case at temperature 0.
+
+**What we learned.** The placement rule fixed every formatting slip, but its side effects were the largest of any fix: three new critical descriptor failures, blog citations down from 9 to 5, the first ads failure, and slower calls. The audit also found that F3 posts used no emoji or exclamation marks, against 6 of 9 baseline posts for each; the 15 baseline cases F3 did not touch still use them. A one-paragraph LinkedIn-only change appears to have shifted the whole output. That is an observation from one sample per case, not proof. The citation failures all landed on titles, subject lines and headlines, the fields the baseline's field-coverage rule names.
