@@ -60,7 +60,7 @@ class ExperimentTests(unittest.TestCase):
         with (self.root/'evals/results'/(label+'.csv')).open(newline='') as f:return list(csv.DictReader(f))
 
     def test_all_manifests_exact_caps_roles_and_dry_default(self):
-        for label,count in [('f1_v1',21),('f1_v2',21),('f2_v1',9),('f3_v1',9)]:
+        for label,count in [('f1_v1',21),('f1_v2',21),('f2_v1',9),('f3_v1',9),('f3_v2',9)]:
             with self.subTest(label=label):
                 manifest,parent,cases=ex.load_experiment(self.path(label))
                 self.assertEqual(len(cases),count)
@@ -134,6 +134,38 @@ class ExperimentTests(unittest.TestCase):
         payload['messages'][0]['content']=variant['messages'][0]['content']
         with self.assertRaisesRegex(r.EvalError,'Production prompt'):
             r.wire_request(payload,parent)
+
+    def test_f3_v2_exact_manifest_prompt_and_production_parity(self):
+        manifest,parent,cases=ex.load_experiment(self.path('f3_v2'))
+        previous,_,_=ex.load_experiment(self.path('f3_v1'))
+        self.assertEqual(r.differences(previous,manifest),
+                         {'$.run_label','$.candidate_prompt_file','$.candidate_prompt_hash'})
+        v1=(self.root/previous['candidate_prompt_file']).read_bytes()
+        candidate=(self.root/manifest['candidate_prompt_file']).read_bytes()
+        reminder=b'When placing the LinkedIn text, preserve the existing package-wide field-coverage rule: any title, subject line, preview or headline in any format that states the flavor or inspiration must keep its own claim_references entry for that exact field. A citation on another field does not cover it.\n'
+        self.assertEqual(candidate,v1+reminder)
+        self.assertEqual(r.sha(candidate),'cea950e8c237eef2ba41c6c2e9cbb8050b0f45bc6c07fd8c8ae6e6e2f28a0826')
+        baseline=(self.root/parent['prompt_file']).read_bytes()
+        self.assertTrue(ex.approved_ancestry(candidate,baseline,'f3_v2'))
+        self.assertEqual(r.load_package_prompt('package_writer'),baseline.decode())
+        _,payload=r.prepare_request(self.snapshot,cases[0]['user_notes'],parent)
+        original=r.wire_request(payload,parent)
+        _,variant=ex.prepare_candidate(self.snapshot,cases[0]['user_notes'],manifest,parent)
+        self.assertEqual(r.differences(original,variant),{'$.messages[0].content'})
+        payload['messages'][0]['content']=variant['messages'][0]['content']
+        with self.assertRaisesRegex(r.EvalError,'Production prompt'):
+            r.wire_request(payload,parent)
+
+    def test_f3_v2_one_byte_change_refused(self):
+        manifest,_,_=ex.load_experiment(self.path('f3_v2'))
+        path=self.root/manifest['candidate_prompt_file']
+        original=path.read_bytes()
+        for mutated in (original.replace(b'ROLE',b'role',1),original[:-1]+b' '):
+            with self.subTest(mutation=r.sha(mutated)):
+                path.write_bytes(mutated)
+                with self.assertRaisesRegex(r.EvalError,'hash or baseline ancestry'):
+                    ex.load_experiment(self.path('f3_v2'))
+        path.write_bytes(original)
 
     def assert_v2_ancestry_rejects_even_with_test_rebound_hash(self, candidate):
         # Synthetic mutation: independently exercise ancestry beyond hash refusal.

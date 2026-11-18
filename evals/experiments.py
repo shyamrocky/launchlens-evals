@@ -45,6 +45,10 @@ RUNS['f1_v2'] = dict(RUNS['f1_v1'],
                      file='evals/prompts/f1_claim_wording_v2.txt',
                      hash='8432c0521345444b07b36b97bcfb350c6b3956dc942e2d48d5877b6a174fc079')
 
+RUNS['f3_v2'] = dict(RUNS['f3_v1'],
+                     file='evals/prompts/f3_field_placement_v2.txt',
+                     hash='cea950e8c237eef2ba41c6c2e9cbb8050b0f45bc6c07fd8c8ae6e6e2f28a0826')
+
 
 def approved_ancestry(candidate, baseline, label):
     if label != 'f1_v2':

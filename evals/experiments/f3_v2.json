@@ -1,0 +1,52 @@
+{
+  "schema": "launchlens-writer-experiment-v1",
+  "run_label": "f3_v2",
+  "fix_id": "F3",
+  "parent_manifest_file": "evals/manifest.json",
+  "parent_manifest_sha256": "21ccd5c9871b19913ce3408ba2fb01fa8bcbd2b639af92373cdfa0fdc11a6081",
+  "snapshot_id": "us-proceed-pre-writer-v1",
+  "snapshot_hash": "40b13adddd00e1df08937af16e7033afdcd19cc6338450dcc63b0a1e35f99bff",
+  "dataset_file": "evals/cases/golden_v1.json",
+  "dataset_sha256": "171b0af3aed00ba3697e5a3839ec0df9d96c80be77bf4b68b08b3ca82dd5ce21",
+  "model": "NousResearch/Hermes-4-405B",
+  "temperature": 0,
+  "max_tokens": 8192,
+  "max_completion_tokens": 8192,
+  "timeout_seconds": 180,
+  "baseline_prompt_file": "evals/prompts/baseline_v1.txt",
+  "baseline_prompt_hash": "2198dd6d64f5adca13728b6460db14e0bd5e1ab55468534c3994df3ec890b505",
+  "candidate_prompt_file": "evals/prompts/f3_field_placement_v2.txt",
+  "candidate_prompt_hash": "cea950e8c237eef2ba41c6c2e9cbb8050b0f45bc6c07fd8c8ae6e6e2f28a0826",
+  "target_ids": [
+    "N-01",
+    "N-07",
+    "N-08",
+    "E-07",
+    "E-09",
+    "KF-02"
+  ],
+  "control_ids": [
+    "N-12",
+    "N-14",
+    "E-04"
+  ],
+  "case_ids": [
+    "N-01",
+    "N-07",
+    "N-08",
+    "E-07",
+    "E-09",
+    "KF-02",
+    "N-12",
+    "N-14",
+    "E-04"
+  ],
+  "call_cap": 9,
+  "per_call_reservation_usd": "0.147456",
+  "reservation_usd": "1.327104",
+  "tracing_required": true,
+  "sealed_allowed": false,
+  "automatic_retries": false,
+  "measurement_version": "m1-v2-hook-body",
+  "execution_authority": "Separate owner go and manifest-bound private authorization required; this manifest does not authorize spending."
+}
