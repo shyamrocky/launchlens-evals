@@ -85,7 +85,7 @@ Run `f3_v2`, November 18, 2026. Build and pre-run note commit `4a639fb`. Scored 
 | Ads (reported) | 9 / 9 | Recovered from v1's 8 / 9 |
 | M1 (of 9) | 9 / 9 | Baseline 3 / 9 |
 | Emoji / exclamation (posts containing) | 0 / 2 | Baseline 6 / 6; v1 0 / 0 |
-| Other changes | Contract 8 to 9; factual 6 to 3; compliance 3 to 7 | v1: factual 5, compliance 8. E-07 and KF-02 now pass everything |
+| Other changes | Contract 8 to 9; factual 6 to 3; compliance 3 to 7 | v1: factual 5, compliance 8. E-07 now passes every check; KF-02 passes all three LinkedIn quality checks but fails a blog citation (title) (corrected November 18; first recorded as both passing everything) |
 | Cost and calls used | 9 / 9 calls, 0 errors, $0.143535; p50 41.82 s, p95 46.97 s | All 9 calls slower than baseline |
 | Decision / next step | **Not adopted. F3 dropped (no v3)** | Target met, but the control, newly-critical and blog-floor conditions failed. Final prompt: baseline plus F2, labelled exploratory |
 

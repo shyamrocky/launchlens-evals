@@ -98,7 +98,7 @@ Run `f3_v1`, November 18, 2026. Pre-run note commit `a04fbcd` at 17:10:27Z, 261 
 | Email / blog citations (same 9) | 8 / 9, 5 / 9 | Email passes its floor (7). Blog fails its floor (9): new failures E-04, E-07, KF-02, N-14, all on the blog title. Email: N-08 new (subject line); E-07, KF-02 cleared |
 | Ads (reported) | 8 / 9 | First ads failure in any run: E-04, citation coverage on an ad headline |
 | M1 (of 9) | 9 / 9 | Baseline 3 / 9 |
-| Other changes | Contract 8 to 9; factual 6 to 5; compliance 3 to 8; overall passes 3 to 5 | E-09 and KF-02 now pass everything; N-08's contract failure also cleared in this sample |
+| Other changes | Contract 8 to 9; factual 6 to 5; compliance 3 to 8; overall passes 3 to 5 | E-09 now passes every check; KF-02 passes all three LinkedIn quality checks but fails a blog citation (title) (corrected November 18; first recorded as both passing everything); N-08's contract failure also cleared in this sample |
 | Cost and calls used | 9 / 9 calls, 0 errors, $0.142239; p50 41.79 s, p95 50.54 s | All 9 calls slower than baseline (baseline p95 35.79 s on these 9). Cost per passing draft $0.028 (baseline $0.047) |
 | Decision / next step | **Not adopted** | Target met, but the control, newly-critical and blog-floor conditions failed. An F3 v2 may be pre-registered (section 7) |
 
