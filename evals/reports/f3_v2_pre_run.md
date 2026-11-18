@@ -1,6 +1,7 @@
 # F3 v2 Experiment Note (Pre-Run)
 
-**Status:** Pre-run. Criteria set by the owner. Prompt not built yet. No live calls made.
+**Current status:** Run complete and scored (November 18, 2026). F3 v2 not adopted; F3 dropped (no v3). Final prompt falls back to baseline plus F2, labelled exploratory. See section 9.
+**Original pre-run status:** Pre-run. Criteria set by the owner. Prompt not built yet. No live calls made.
 **Date written:** 2026-11-18
 **Owner:** Shyam
 **Follows:** F3 v1, not adopted (see `evals/reports/f3_v1_pre_run.md`, section 9)
@@ -73,14 +74,23 @@ Same as v1, section 4: descriptors, tone, the N-08 contract failure, and pre-exi
 
 ## 9. Results
 
-*To be filled in after the run. Record misses and regressions as well as successes.*
+Run `f3_v2`, November 18, 2026. Build and pre-run note commit `4a639fb`. Scored blind by the owner (18 posts, T001–T018: 9 baseline, 9 v2); Codex joined the scores unchanged. All 9 traces confirmed in LangSmith by query.
 
 | Item | Result | Notes |
 |---|---|---|
-| Targets cleared (formatting) | ___ / 6 | v1: 6 / 6 |
-| Controls held | ___ / 3 | v1: 1 / 3 |
-| Newly critical cases | | v1: 3 (E-07, N-12, E-04) |
-| Email / blog citations (same 9) | ___ / 9, ___ / 9 | baseline 7 / 9; v1 8 / 5 |
-| Ads (reported) | ___ / 9 | baseline 9; v1 8 |
-| Cost and calls used | | |
-| Decision / next step | | |
+| Targets cleared (formatting) | 6 / 6 | Same as v1. Owner score and M1 both clear |
+| Controls held | 1 / 3 | Pre-registered definition: N-12 held (it had failed in v1). N-14 ("refreshing") and E-04 ("bright", "smooth", "distinct") became critical. N-12 gained an email citation failure, counted under the guard. v1: 1 / 3 |
+| Newly critical cases | 4 | N-07 and N-08 (descriptors plus tone), N-14, E-04. v1: 3 |
+| Email / blog citations (same 9) | 7 / 9, 8 / 9 | Email meets its floor (7). Blog misses its floor (9): KF-02, on the blog title. v1: 8 / 5. Email new failures E-09, N-12 (preview text); cleared E-07, KF-02 |
+| Ads (reported) | 9 / 9 | Recovered from v1's 8 / 9 |
+| M1 (of 9) | 9 / 9 | Baseline 3 / 9 |
+| Emoji / exclamation (posts containing) | 0 / 2 | Baseline 6 / 6; v1 0 / 0 |
+| Other changes | Contract 8 to 9; factual 6 to 3; compliance 3 to 7 | v1: factual 5, compliance 8. E-07 and KF-02 now pass everything |
+| Cost and calls used | 9 / 9 calls, 0 errors, $0.143535; p50 41.82 s, p95 46.97 s | All 9 calls slower than baseline |
+| Decision / next step | **Not adopted. F3 dropped (no v3)** | Target met, but the control, newly-critical and blog-floor conditions failed. Final prompt: baseline plus F2, labelled exploratory |
+
+**Blinding order.** The owner recorded that scoring finished at 14:25 PT, in the planning record, before sending the scores. The mapping file was created at 13:30:24 PT when the packet was built; its next recorded access was 14:26:25 PT, during the join, which Codex started at 14:26:24 PT. This is the strongest blinding evidence of any experiment. Access time is still not a complete read log. (The finish time was left as a placeholder in the join prompt; the planning record holds it.)
+
+**Scorer consistency.** The blind baseline re-score again differed on N-01 (tone) and N-08 (contract failure not visible in the post). Official scores stay authoritative.
+
+**What we learned.** The field-coverage reminder did its job: blog failures fell from 4 to 1 and ads recovered. But the descriptor problem moved rather than shrank: different cases picked up taste words each time (N-12 in v1; N-07, N-08 and N-14 in v2), and factual support fell from 6 to 3 on these cases. Across all five experiments, any prompt change shifted the Writer's wording enough to add descriptors to some previously clean posts. A prompt rule alone cannot hold this; a code check that detects descriptors and triggers a repair is the stronger next step (report section 8).
