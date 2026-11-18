@@ -1,6 +1,7 @@
 # F1 v1 Experiment Note (Pre-Run)
 
-**Status:** Pre-run. Dry run passed. Criteria set. Waiting for owner "go". No live calls made.
+**Current status:** Run complete and scored (November 17, 2026). F1 v1 not adopted; see section 8.
+**Original pre-run status:** Pre-run. Dry run passed. Criteria set. Waiting for owner "go". No live calls made.
 **Date written:** 2026-11-17
 **Owner:** Shyam
 **Repo commit:** `852b192923e1ff19217585d4aa84b457d7cff564` ("Add Phase 4 experiment path, prompts and M1 measurement"). Local and origin match, working tree clean. 36 tests and public-repo scans passed.
@@ -91,12 +92,18 @@ Set by the owner before the run.
 
 ## 8. Results
 
-*To be filled in after the run. Record misses and regressions as well as successes.*
+Run `f1_v1`, November 17, 2026. Scored blind by the owner (42 shuffled posts: 21 baseline, 21 F1); Codex joined the scores to the private mapping without editing any value. Scores file SHA-256 `88956e9e290d711f51db97b5c0f207e4f697f31a66f6401f510e5cb09dda30d8`.
 
 | Item | Result | Notes |
 |---|---|---|
-| Targets cleared | ___ / 18 | |
-| Controls held | ___ / 3 | |
-| New critical failures | | |
-| Cost and calls used | | |
-| Decision / next step | | |
+| Targets cleared | 9 / 18 (50%) | N-01, N-03, N-04, N-06, N-11, N-15, E-03, E-09, KF-02. Target was 14. Still failing: N-02, N-09, N-10, N-13, E-02, E-05, E-08, KF-01, A-02 ("unique" was the most common leftover word) |
+| Controls held | 2 / 3 | N-14 and E-04 held. N-12 went from pass to critical fail ("refreshing flavor experience") |
+| New critical failures | 1 case (N-12) | Also N-02 added an availability failure ("is here!"), but it was already critical at baseline |
+| Other regressions | Compliance: N-04 (tone), N-13 (hashtag in hook) | Email citations: 4 new fails, 4 cleared (17 to 17). Blog citations: 8 new fails, 2 cleared (19 to 13). Campaign brief and ads: no change |
+| Same-21 totals | Factual 3 to 11; compliance 13 to 13; contract 21 to 21; M1 18 to 20 | Aggregate gains do not override the failed control and new-critical rules |
+| Cost and calls used | 21 / 21 calls, 0 errors, $0.332907; p50 33.79 s, p95 41.41 s | All traces delivered |
+| Decision / next step | **Not adopted** under the pre-registered rule | Next step: owner decision between (A) F2 and F3 without F1, or (B) a pre-registered F1 v2 |
+
+**Limits.** The owner had already seen the baseline posts, so blinding was partial. Results cover 21 working cases only; sealed cases untouched.
+
+**What we learned.** A rule appended at the end of the prompt halved descriptor failures on the 18 targets (18 to 9) but did not stop them; counting the controls, descriptor failures went from 18 to 10 because N-12 regressed, and the model swapped one descriptor for another in a passing control. It also shifted citation behaviour in the blog, a format the rule did not mention. A prompt-only fix needs a wider safety net than its own targets.
