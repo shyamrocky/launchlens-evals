@@ -1,6 +1,7 @@
 # F2 v1 Experiment Note (Pre-Run)
 
-**Status:** Pre-run. Criteria set by the owner. Not yet run. No live calls made.
+**Current status:** Run complete and scored (November 17, 2026). F2 not adopted; dropped under the no-F2-v2 rule. See section 8.
+**Original pre-run status:** Pre-run. Criteria set by the owner. Not yet run. No live calls made.
 **Date written:** 2026-11-17
 **Owner:** Shyam
 **Prompt file:** `evals/prompts/f2_note_direction_v1.txt` (built in commit `852b192`; SHA-256 `e516756b5fe2b3d0b485ba506f1eb4a4aabc6332916327faa778012460f9a7d9`, matches the manifest). One LinkedIn-only paragraph, "LINKEDIN NOTE DIRECTION", appended after FORMAT TONE POLICY; unchanged.
@@ -84,14 +85,21 @@ A good result must not be described as fixing:
 
 ## 8. Results
 
-*To be filled in after the run. Record misses and regressions as well as successes.*
+Run `f2_v1`, November 17, 2026. Pre-run note commit `15d44f0`. Scored blind by the owner (18 shuffled posts, R001–R018: 9 baseline, 9 F2); Codex joined the scores to the private mapping without editing any value. Scores file SHA-256 `252b040cf457ae82ce54534c311b214dcecd40861eef22f80ddc71d8c040b32a`.
 
 | Item | Result | Notes |
 |---|---|---|
-| Targets cleared (tone) | ___ / 6 | |
-| Controls held | ___ / 3 | |
-| Newly critical cases | | |
-| Email / blog citations (same 9) | ___ / 9, ___ / 9 | baseline 7 / 9 |
-| Template opener (of 9): family / literal | | baseline 7 / 5 |
-| Cost and calls used | | |
-| Decision / next step | | |
+| Targets cleared (tone) | 5 / 6 | Target 4 met. Cleared: N-01, N-02, N-06, N-10, KF-01. N-03 (trade framing) still fails |
+| Controls held | 2 / 3 | N-14 and E-04 held. N-12 went from pass to critical (unsupported descriptor) |
+| Newly critical cases | 1 (N-12) | No new critical category on already-critical cases |
+| Email / blog citations (same 9) | 7 / 9, 8 / 9 | Email meets its floor (7). Blog misses its floor (9): N-02 new failure. Email: N-02 new, N-06 cleared, N-10 persistent |
+| Template opener (of 9): family / literal | 4 / 3 | Baseline 7 / 5. Prediction of 2 or fewer family openers missed (reported only) |
+| Other changes | Compliance 3 to 7; factual 3 to 2; M1 8 to 8 | M1 total hides turnover: N-01 cleared, N-02 gained a closing question in the body. N-02 cleared tone but still fails compliance on formatting |
+| Cost and calls used | 9 / 9 calls, 0 errors, $0.143920; p50 34.53 s, p95 39.35 s | All traces delivered. Cost per passing draft $0.072 (baseline $0.047 on these 9) |
+| Decision / next step | **Not adopted. F2 dropped (no F2 v2)** | Tone target met, but the control, newly-critical and blog-floor conditions failed. Next: F3 |
+
+**Scorer consistency.** The blind re-score of the 9 baseline posts repeated the two differences seen in the F1 v2 packet (N-01 tone; N-10 compliance). The original scores stay official; tone clears are counted against the official six.
+
+**Limits.** Several baseline posts were identical to ones scored in earlier packets, so blinding was weak. Results cover 9 working cases only; sealed cases untouched.
+
+**What we learned.** The note-direction rule worked on what it targeted: tone failures fell from 6 to 1 and compliance rose from 3 to 7 of 9. It was rejected by its safeguards, not by its target: a control gained a descriptor, and one blog citation slipped under a zero-tolerance floor. N-12 is the control most sensitive to prompt changes, failing under F1 v1 and F2.
