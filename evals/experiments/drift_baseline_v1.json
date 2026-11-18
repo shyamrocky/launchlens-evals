@@ -1,0 +1,37 @@
+{
+  "snapshot_id": "us-proceed-pre-writer-v1",
+  "snapshot_hash": "40b13adddd00e1df08937af16e7033afdcd19cc6338450dcc63b0a1e35f99bff",
+  "dataset_file": "evals/cases/golden_v1.json",
+  "dataset_sha256": "171b0af3aed00ba3697e5a3839ec0df9d96c80be77bf4b68b08b3ca82dd5ce21",
+  "model": "NousResearch/Hermes-4-405B",
+  "temperature": 0,
+  "max_tokens": 8192,
+  "max_completion_tokens": 8192,
+  "timeout_seconds": 180,
+  "schema": "launchlens-final-round-v1",
+  "run_label": "drift_baseline_v1",
+  "parent_manifest_file": "evals/manifest.json",
+  "parent_manifest_sha256": "21ccd5c9871b19913ce3408ba2fb01fa8bcbd2b639af92373cdfa0fdc11a6081",
+  "candidate_prompt_file": "evals/prompts/baseline_v1.txt",
+  "candidate_prompt_hash": "2198dd6d64f5adca13728b6460db14e0bd5e1ab55468534c3994df3ec890b505",
+  "case_ids": [
+    "N-09",
+    "E-07",
+    "A-02"
+  ],
+  "call_cap": 3,
+  "per_call_reservation_usd": "0.147456",
+  "reservation_usd": "0.442368",
+  "combined_call_cap": 33,
+  "combined_reservation_usd": "4.866048",
+  "execution_order": [
+    "drift_baseline_v1",
+    "final_v1"
+  ],
+  "tracing_required": true,
+  "automatic_retries": false,
+  "sealed_allowed": false,
+  "measurement_version": "m1-v2-hook-body",
+  "interpretation": "baseline_drift_check",
+  "execution_authority": "Separate owner go and manifest-bound private authorization required; this manifest does not authorize spending."
+}
