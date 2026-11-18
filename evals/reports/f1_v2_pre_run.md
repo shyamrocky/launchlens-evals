@@ -1,6 +1,7 @@
 # F1 v2 Experiment Note (Pre-Run)
 
-**Status:** Pre-run. Criteria set by the owner. Prompt not built yet. No live calls made.
+**Current status:** Run complete and scored (November 17, 2026). F1 v2 not adopted; F1 dropped under the no-v3 rule. See section 9.
+**Original pre-run status:** Pre-run. Criteria set by the owner. Prompt not built yet. No live calls made.
 **Date written:** 2026-11-17
 **Owner:** Shyam
 **Follows:** F1 v1, not adopted (see `evals/reports/f1_v1_pre_run.md`, section 8)
@@ -74,13 +75,21 @@ Same as v1, section 4. A good result must not be described as fixing M1 repeats,
 
 ## 9. Results
 
-*To be filled in after the run. Record misses and regressions as well as successes.*
+Run `f1_v2`, November 17, 2026. Build commit `de0ce86`. Scored blind by the owner (42 shuffled posts, Q001–Q042: 21 baseline, 21 v2); Codex joined the scores to the private mapping without editing any value. Scores file SHA-256 `9e8a3aa079244ed44041a32884fd4d9732ef8e5e585590b04cfe209bf0882c6a`.
 
 | Item | Result | Notes |
 |---|---|---|
-| Targets cleared | ___ / 18 | v1: 9 / 18 |
-| Controls held | ___ / 3 | v1: 2 / 3 |
-| New critical failures | | v1: 1 (N-12) |
-| Email / blog citations (same 21) | ___ / 21, ___ / 21 | baseline 17 / 19; v1 17 / 13 |
-| Cost and calls used | | |
-| Decision / next step | | |
+| Targets cleared | 6 / 18 | v1: 9 / 18. Cleared: N-03, N-04, E-03, E-08, E-09, A-02 |
+| Controls held | 1 / 3 across all checks | N-14 held. E-04 became critical ("distinct flavor option", closing question in body). N-12 held on the post but gained email and blog citation failures. v1: 2 / 3 |
+| New critical failures | 1 case (E-04) | v1: 1 (N-12) |
+| Email / blog citations (same 21) | 14 / 21, 17 / 21 | Both below the floors (17, 19). Baseline 17 / 19; v1 17 / 13 |
+| Other regressions | Compliance: N-04, N-15, E-04 | New M1 failures: N-02, N-04, KF-01, E-04 (three baseline M1 failures cleared) |
+| Same-21 totals | Factual 3 to 8; compliance 13 to 12; overall passes 3 to 6 | v1: factual 11, compliance 13, overall 7 |
+| Cost and calls used | 21 / 21 calls, 0 errors, $0.337032; p50 33.10 s, p95 38.57 s | All traces delivered. Cost per passing draft $0.056 (baseline $0.110, v1 $0.048) |
+| Decision / next step | **Not adopted. F1 dropped (no v3)** | At least 2 targets improved, but the control, new-critical and citation conditions failed; the 14 / 18 target was also missed. Next: F2 |
+
+**Scorer consistency.** The 21 baseline posts were re-scored blind in this packet. Two judgments differed from the original owner scores: N-01 (tone not marked) and N-10 (compliance pass instead of fail). The original scores stay official; the decision is the same under either.
+
+**Limits.** Blinding was weaker than in v1 because v2 had a recognisable style. v2 changed three things at once, so its effect can't be attributed to one of them. Results cover 21 working cases only; sealed cases untouched.
+
+**What we learned.** Moving the rule and adding a self-check did not beat the simpler v1 rule: fewer targets cleared (6 against 9), "distinct" still appeared although the prompt named it, and citation quality fell in the email and blog. Two pre-registered attempts show that a prompt rule alone does not stop this model from adding descriptors. A code check that detects them and triggers a repair is the stronger next step (report section 8).
