@@ -1,6 +1,7 @@
 # Final Run Note (Pre-Run): final_v1 and drift_baseline_v1
 
-**Status:** Pre-run. Criteria set by the owner. Not yet built or run. No live calls made.
+**Current status:** Run complete, working and sealed rounds scored and joined (November 18, 2026). See section 9.
+**Original pre-run status:** Pre-run. Criteria set by the owner. Not yet built or run. No live calls made.
 **Date written:** 2026-11-18
 **Owner:** Shyam
 
@@ -74,18 +75,26 @@ Written before the run, from the F2 experiment and the baseline:
 
 ## 9. Results
 
-*To be filled in after the run and both scoring rounds.*
+Build commit `e3ed38a`. Runs on November 18, drift first then final: 33/33 calls returned, 0 errors, no retries; $0.526900 total (drift $0.047468, final $0.479432). All 33 traces confirmed by a metadata-only LangSmith query, including the 6 sealed.
 
 | Item | Baseline | Final (baseline + F2) | Notes |
 |---|---|---|---|
-| Contract and citation, working 24 | 23 / 24 | | |
-| Factual support, working 24 | 6 / 24 | | |
-| Compliance, working 24 | 13 / 24 | | |
-| Critical failures on normal cases | 10 / 14 | | |
-| Sealed 6: contract / factual / compliance | | | |
-| All 30: contract / factual / compliance | | | |
-| Email / blog / ads citations, working 24 | 19 / 22 / 24 | | |
-| Cost per passing draft | $0.126 | | |
-| p50 / p95 latency | 32.4 s / 38.8 s | | |
-| Drift repeats (N-09, E-07, A-02) | | | |
-| Cost and calls used | | | |
+| Contract and citation, working 24 (validator) | 23 / 24 | 24 / 24 | Bar ≥95%: met by both |
+| Factual support, working 24 | 6 / 24 | 9 / 24 | Bar 23 / 24: missed |
+| Compliance, working 24 | 13 / 24 | 17 / 24 | Bar 22 / 24: missed |
+| Critical failures on normal cases | 10 / 14 | 8 / 14 | Bar 0: missed |
+| Sealed 6: contract (validator) / factual / compliance | 5 / 2 / 5 | 5 / 3 / 5 | Passing drafts 1 to 3. KF-03 newly critical; E-01, KF-04 cleared |
+| All 30: contract (validator) / factual / compliance | 28 / 8 / 18 | 29 / 12 / 22 | Bars: contract met by final only (baseline 93.3%); factual (29) and compliance (27) missed by both; critical normal 11 / 15 to 9 / 15 |
+| Email / blog / ads citations, all 30 | 24 / 26 / 30 | 27 / 24 / 30 | Working 24: 19 / 22 / 24 to 21 / 19 / 24. First campaign-brief failure (E-02) |
+| Cost per passing draft, all 30 | $0.118 | $0.053 | Bar under $0.04: missed (sealed 6 alone $0.032) |
+| p50 / p95 latency, all 30 | 32.4 s / 38.8 s | 37.5 s / 47.7 s | Bar p95 under 60 s: met (one final call 65.4 s) |
+| Drift repeats (N-09, E-07, A-02) | | All three texts differ | E-07 minor to critical; A-02 critical to pass; N-09 scores held, new email citation failure. **Possible drift flagged** under section 5 |
+| Cost and calls used | | 33 / 33 calls, $0.526900 | |
+
+**Predictions (section 3) against results.** Compliance rose but stayed under its bar; factual support missed its bar; contract held; cost per pass stayed above $0.04; p95 stayed under 60 s; the template opener fell (17 to 11 working). As predicted. Factual support rose by 3 on the working set, more than "near 6". Email rose (19 to 21 working) while blog fell (22 to 19), so the predicted drop held for blog only.
+
+**Contract metric.** The owner's blind scores marked contract as pass for baseline KF-03 and final N-05, but the LinkedIn validator flags an invalid citation-field reference in both. Contract is reported from the validator, as the framework specifies; owner contract counts (29 / 30 to 30 / 30) are not presented as validator agreement.
+
+**Blinding order.** Working round: scoring finished 19:30 PT; the mapping was last accessed at 15:32 PT (packet build) and next at 19:36 PT (join). Sealed round: scoring finished 19:58 PT; mapping created 19:52 PT, next accessed 20:00 PT (join). The sealed posts were read for the first time at the reveal.
+
+**What we learned.** The final prompt improved tone and the opener, and lifted factual support and compliance by 4 cases each on all 30. It held every hard rule on the sealed set. It still misses the factual-support, compliance, zero-critical and cost bars, because unsupported descriptors remain the dominant failure. The drift check shows the same prompt at temperature 0 changes wording, and sometimes scores, from run to run, so single-sample deltas carry noise of about the same size as several of the effects measured. The recommended next step is a code check that detects unsupported descriptors and triggers a repair, measured with repeated samples per case.
